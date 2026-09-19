@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 
 import { AuthModule } from './auth/auth.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
+import { TournamentsModule } from './tournaments/tournaments.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
@@ -21,6 +22,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     }),
     AuthModule,
     ApiKeysModule,
+    TournamentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

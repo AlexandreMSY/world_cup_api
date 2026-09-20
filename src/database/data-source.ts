@@ -14,6 +14,7 @@ import { TournamentTeam } from '../football/tournaments/entities/tournament-team
 import { Tournament } from '../football/tournaments/entities/tournament.entity.js';
 import { InitialSchema1760000000000 } from './migrations/1760000000000-initial-schema.js';
 import { AddPublicIds1760000001000 } from './migrations/1760000001000-add-public-ids.js';
+import { EnforceSingleActiveCredential1760000002000 } from './migrations/1760000002000-enforce-single-active-credential.js';
 
 export default new DataSource({
   type: 'postgres',
@@ -38,5 +39,9 @@ export default new DataSource({
     Booking,
     Substitution,
   ],
-  migrations: [InitialSchema1760000000000, AddPublicIds1760000001000],
+  migrations: [
+    InitialSchema1760000000000,
+    AddPublicIds1760000001000,
+    EnforceSingleActiveCredential1760000002000,
+  ],
 });

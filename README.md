@@ -103,6 +103,8 @@ Football endpoints require an API key in the `X-API-Key` header.
    { "email": "user@example.com", "password": "password123" }
    ```
 
+   Repeated logins return the same JWT until its 30-minute expiry. The first login after expiry returns a new token.
+
 3. Generate an API key with the JWT:
 
    ```http
@@ -111,6 +113,8 @@ Football endpoints require an API key in the `X-API-Key` header.
    ```
 
    Store the returned `api_key` securely. It is shown only when generated.
+
+   Each user can have one active API key. Delete the active key before requesting a replacement; otherwise this endpoint returns 409 Conflict.
 
 4. Call football endpoints:
 

@@ -17,6 +17,9 @@ export class User {
   @Column()
   password_hash: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  access_token_expires_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

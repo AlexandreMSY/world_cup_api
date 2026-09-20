@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import argon2 from 'argon2';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { ApiKeysService } from './api-keys.service.js';
 import { ApiKey } from './entities/api-key.entity.js';
@@ -25,6 +25,8 @@ describe('ApiKeysService', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    apiKeysRepository.findOne.mockResolvedValue(null);
+    apiKeysRepository.save.mockResolvedValue(undefined);
     queryBuilder.update.mockReturnValue(queryBuilder);
     queryBuilder.set.mockReturnValue(queryBuilder);
     queryBuilder.where.mockReturnValue(queryBuilder);
@@ -56,17 +58,37 @@ describe('ApiKeysService', () => {
     expect(createdApiKey.key_fingerprint).toBe(
       createHash('sha256').update(response.api_key).digest('hex'),
     );
-    expect(queryBuilder.where).toHaveBeenCalledWith('user_id = :userId', {
-      userId: 'user-id',
-    });
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith('active = :active', {
-      active: true,
-    });
     expect(apiKeysRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ active: true }),
     );
   });
 
+  it('rejects generation when the user already has an active API key', async () => {
+    apiKeysRepository.findOne.mockResolvedValue({
+      id: 'api-key-id',
+      active: true,
+    } as ApiKey);
+
+    await expect(service.generate('user-id')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(apiKeysRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('converts the active-key unique-index race into a conflict', async () => {
+    apiKeysRepository.findOne.mockResolvedValue(null);
+    apiKeysRepository.create.mockImplementation((apiKey) => apiKey);
+    apiKeysRepository.save.mockRejectedValue({
+      driverError: {
+        code: '23505',
+        constraint: 'uq_api_keys_one_active_per_user',
+      },
+    });
+
+    await expect(service.generate('user-id')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
   it('deactivates the authenticated user active API key', async () => {
     const apiKey = { id: 'api-key-id', active: true } as ApiKey;
     apiKeysRepository.findOne.mockResolvedValue(apiKey);

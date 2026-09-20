@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { User } from './entities/user.entity.js';
 
+const accessTokenExpirationSeconds = 30 * 60;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -51,7 +53,43 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const accessToken = await this.jwtService.signAsync({ sub: user.id });
+    const accessTokenExpiresAt = await this.userRepository.manager.transaction(
+      async (manager) => {
+        const lockedUser = await manager.findOne(User, {
+          where: { id: user.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!lockedUser) {
+          throw new UnauthorizedException('Invalid email or password');
+        }
+
+        const now = new Date();
+
+        if (
+          lockedUser.access_token_expires_at &&
+          lockedUser.access_token_expires_at > now
+        ) {
+          return lockedUser.access_token_expires_at;
+        }
+
+        const expiresAt = new Date(
+          (Math.floor(now.getTime() / 1000) + accessTokenExpirationSeconds) *
+            1000,
+        );
+        lockedUser.access_token_expires_at = expiresAt;
+        await manager.save(lockedUser);
+
+        return expiresAt;
+      },
+    );
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        exp: Math.floor(accessTokenExpiresAt.getTime() / 1000),
+      },
+      { noTimestamp: true },
+    );
 
     return { accessToken };
   }

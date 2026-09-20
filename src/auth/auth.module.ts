@@ -17,7 +17,6 @@ if (!jwtSecret) {
     TypeOrmModule.forFeature([User]),
     JwtModule.register({
       secret: jwtSecret,
-      signOptions: { expiresIn: '30m' },
     }),
   ],
   controllers: [AuthController],

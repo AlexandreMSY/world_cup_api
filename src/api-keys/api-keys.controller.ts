@@ -2,6 +2,7 @@ import { Controller, Delete, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -35,6 +36,10 @@ export class ApiKeysController {
   @ApiCreatedResponse({
     description: 'A new API key. Save it now; it cannot be retrieved again.',
     type: CreatedApiKeyDto,
+  })
+  @ApiConflictResponse({
+    description:
+      'An active API key already exists. Delete it before generating a replacement.',
   })
   async generate(
     @Req() request: AuthenticatedRequest,

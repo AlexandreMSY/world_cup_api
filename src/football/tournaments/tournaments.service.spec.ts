@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { MatchesService } from '../matches/matches.service.js';
 import { TournamentTeam } from './entities/tournament-team.entity.js';
 import { Tournament } from './entities/tournament.entity.js';
 import { TournamentsService } from './tournaments.service.js';
@@ -22,6 +23,10 @@ const tournamentTeamsRepository = {
 const tournamentsRepository = {
   findAndCount: vi.fn(),
   findOneBy: vi.fn(),
+};
+
+const matchesService = {
+  findByTournament: vi.fn(),
 };
 
 describe('TournamentsService', () => {
@@ -61,6 +66,10 @@ describe('TournamentsService', () => {
         {
           provide: getRepositoryToken(TournamentTeam),
           useValue: tournamentTeamsRepository,
+        },
+        {
+          provide: MatchesService,
+          useValue: matchesService,
         },
       ],
     }).compile();
@@ -160,5 +169,40 @@ describe('TournamentsService', () => {
       service.findTeams('missing-id', { page: 1, limit: 20 }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(tournamentTeamsRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns tournament matches after validating the parent', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue({
+      id: 'tournament-id',
+      name: 'FIFA World Cup',
+      year: 2002,
+      host: null,
+      start_date: null,
+      end_date: null,
+    });
+    matchesService.findByTournament.mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+    });
+
+    await expect(
+      service.findMatches('tournament-id', { page: 1, limit: 20 }),
+    ).resolves.toEqual({
+      data: [],
+      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+    });
+    expect(matchesService.findByTournament).toHaveBeenCalledWith(
+      'tournament-id',
+      { page: 1, limit: 20 },
+    );
+  });
+
+  it('does not query matches when the tournament is missing', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(
+      service.findMatches('missing-id', { page: 1, limit: 20 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(matchesService.findByTournament).not.toHaveBeenCalled();
   });
 });

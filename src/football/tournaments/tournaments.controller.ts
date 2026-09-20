@@ -17,6 +17,7 @@ import {
 import { ApiKeyAuthGuard } from '../../api-keys/guards/api-key-auth.guard.js';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
 import { PaginatedResponse } from '../../common/pagination/pagination.js';
+import { MatchSummaryDto } from '../matches/dto/match-summary.dto.js';
 import { TeamDto } from '../teams/dto/team.dto.js';
 import { TournamentDto } from './dto/tournament.dto.js';
 import { TournamentsService } from './tournaments.service.js';
@@ -59,5 +60,16 @@ export class TournamentsController {
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
     return await this.tournamentsService.findTeams(id, pagination);
+  }
+
+  @Get(':id/matches')
+  @ApiOperation({ summary: 'List matches in a World Cup tournament' })
+  @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Tournament not found.' })
+  async findMatches(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    return await this.tournamentsService.findMatches(id, pagination);
   }
 }

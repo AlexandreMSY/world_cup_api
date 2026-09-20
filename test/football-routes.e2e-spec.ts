@@ -71,16 +71,24 @@ describe('football route contracts (e2e)', () => {
     expect(teamsService.findAll).not.toHaveBeenCalled();
   });
 
-  it('passes any public identifier to the service and returns 404 when absent', async () => {
+  it('returns 400 for a non-numeric public ID', async () => {
+    await request(app.getHttpServer())
+      .get('/teams/not-a-number')
+      .set('X-API-Key', 'test-api-key')
+      .expect(400);
+    expect(teamsService.findOne).not.toHaveBeenCalled();
+  });
+
+  it('passes numeric public IDs to the service and returns 404 when absent', async () => {
     teamsService.findOne.mockRejectedValue(
       new NotFoundException('Team not found'),
     );
 
     await request(app.getHttpServer())
-      .get('/teams/not-a-uuid')
+      .get('/teams/23')
       .set('X-API-Key', 'test-api-key')
       .expect(404);
-    expect(teamsService.findOne).toHaveBeenCalledWith('not-a-uuid');
+    expect(teamsService.findOne).toHaveBeenCalledWith(23);
   });
 
   it('returns 400 for invalid pagination', async () => {

@@ -5,8 +5,8 @@ export class Team {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
-  slug: string;
+  @Column({ type: 'integer', unique: true, generated: 'increment' })
+  public_id: number;
 
   @Column({ type: 'varchar', unique: true })
   name: string;

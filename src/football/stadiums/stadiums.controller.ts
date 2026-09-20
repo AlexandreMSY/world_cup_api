@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -33,22 +40,22 @@ export class StadiumsController {
     return await this.stadiumsService.findAll(pagination);
   }
 
-  @Get(':slug')
+  @Get(':id')
   @ApiOperation({ summary: 'Get a football stadium' })
   @ApiOkResponse({ type: StadiumDto })
   @ApiNotFoundResponse({ description: 'Stadium not found.' })
-  async findOne(@Param('slug') slug: string): Promise<StadiumDto> {
-    return await this.stadiumsService.findOne(slug);
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<StadiumDto> {
+    return await this.stadiumsService.findOne(id);
   }
 
-  @Get(':slug/matches')
+  @Get(':id/matches')
   @ApiOperation({ summary: 'List matches played at a football stadium' })
   @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Stadium not found.' })
   async findMatches(
-    @Param('slug') slug: string,
+    @Param('id', ParseIntPipe) id: number,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    return await this.stadiumsService.findMatches(slug, pagination);
+    return await this.stadiumsService.findMatches(id, pagination);
   }
 }

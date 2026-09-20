@@ -3,7 +3,7 @@ import { BasicTeamDto } from '../../matches/dto/match-summary.dto.js';
 
 export class BasicPlayerDto {
   @ApiProperty()
-  slug: string;
+  id: number;
 
   @ApiProperty()
   name: string;
@@ -31,7 +31,7 @@ export class GoalDto {
 
 export class BasicGoalMatchDto {
   @ApiProperty()
-  slug: string;
+  id: number;
 
   @ApiProperty()
   round: string;

@@ -13,7 +13,7 @@ import { Team } from './entities/team.entity.js';
 
 export function toTeamDto(team: Team): TeamDto {
   return {
-    slug: team.slug,
+    id: team.public_id,
     name: team.name,
     code: team.code,
   };
@@ -31,7 +31,7 @@ export class TeamsService {
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
     const [teams, totalItems] = await this.teamsRepository.findAndCount({
-      order: { name: 'ASC', slug: 'ASC' },
+      order: { name: 'ASC', public_id: 'ASC' },
       skip: (pagination.page - 1) * pagination.limit,
       take: pagination.limit,
     });
@@ -43,21 +43,21 @@ export class TeamsService {
     );
   }
 
-  async findOne(slug: string): Promise<TeamDto> {
-    return toTeamDto(await this.findEntity(slug));
+  async findOne(id: number): Promise<TeamDto> {
+    return toTeamDto(await this.findEntity(id));
   }
 
   async findMatches(
-    slug: string,
+    id: number,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    const team = await this.findEntity(slug);
+    const team = await this.findEntity(id);
 
     return await this.matchesService.findByTeam(team.id, pagination);
   }
 
-  private async findEntity(slug: string): Promise<Team> {
-    const team = await this.teamsRepository.findOneBy({ slug });
+  private async findEntity(id: number): Promise<Team> {
+    const team = await this.teamsRepository.findOneBy({ public_id: id });
 
     if (!team) {
       throw new NotFoundException('Team not found');

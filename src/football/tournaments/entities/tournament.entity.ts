@@ -6,8 +6,8 @@ export class Tournament {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
-  slug: string;
+  @Column({ type: 'integer', unique: true, generated: 'increment' })
+  public_id: number;
 
   @Column({ type: 'varchar', length: 100 })
   name: string;

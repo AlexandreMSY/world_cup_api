@@ -6,7 +6,7 @@ import { TournamentTeam } from './entities/tournament-team.entity.js';
 import { Tournament } from './entities/tournament.entity.js';
 import { TournamentsService } from './tournaments.service.js';
 
-const tournamentTeamsQueryBuilder = {
+const query = {
   innerJoinAndSelect: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
@@ -19,8 +19,8 @@ const tournamentTeamsRepository = { createQueryBuilder: vi.fn() };
 const tournamentsRepository = { findAndCount: vi.fn(), findOneBy: vi.fn() };
 const matchesService = { findByTournament: vi.fn() };
 const tournament = {
-  id: 'tournament-id',
-  slug: 'world-cup-2002',
+  id: 'tournament-uuid',
+  public_id: 23,
   name: 'FIFA World Cup',
   year: 2002,
   host: 'South Korea, Japan',
@@ -40,14 +40,10 @@ describe('TournamentsService', () => {
       'addOrderBy',
       'skip',
       'take',
-    ]) {
-      tournamentTeamsQueryBuilder[method].mockReturnValue(
-        tournamentTeamsQueryBuilder,
-      );
+    ] as const) {
+      query[method].mockReturnValue(query);
     }
-    tournamentTeamsRepository.createQueryBuilder.mockReturnValue(
-      tournamentTeamsQueryBuilder,
-    );
+    tournamentTeamsRepository.createQueryBuilder.mockReturnValue(query);
     const module = await Test.createTestingModule({
       providers: [
         TournamentsService,
@@ -65,59 +61,49 @@ describe('TournamentsService', () => {
     service = module.get(TournamentsService);
   });
 
-  it('returns slug-only tournaments in a pagination envelope', async () => {
+  it('returns numeric public IDs in tournament responses', async () => {
     tournamentsRepository.findAndCount.mockResolvedValue([[tournament], 1]);
 
-    await expect(service.findAll({ page: 1, limit: 20 })).resolves.toEqual({
-      data: [
-        {
-          slug: 'world-cup-2002',
-          name: 'FIFA World Cup',
-          year: 2002,
-          host: 'South Korea, Japan',
-          startDate: '2002-05-31',
-          endDate: '2002-06-30',
-        },
-      ],
-      meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+    await expect(
+      service.findAll({ page: 1, limit: 20 }),
+    ).resolves.toMatchObject({
+      data: [{ id: 23, name: 'FIFA World Cup' }],
     });
+    expect(tournamentsRepository.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ public_id: true }),
+        order: { year: 'ASC', public_id: 'ASC' },
+      }),
+    );
   });
 
-  it('resolves a tournament slug for child queries', async () => {
+  it('resolves a public ID before using the internal UUID for child queries', async () => {
     tournamentsRepository.findOneBy.mockResolvedValue(tournament);
-    tournamentTeamsQueryBuilder.getManyAndCount.mockResolvedValue([
-      [{ team: { id: 'team-id', slug: 'brazil', name: 'Brazil', code: null } }],
+    query.getManyAndCount.mockResolvedValue([
+      [{ team: { id: 'team-uuid', public_id: 7, name: 'Brazil', code: null } }],
       1,
     ]);
-    matchesService.findByTournament.mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
-    });
+    matchesService.findByTournament.mockResolvedValue({ data: [], meta: {} });
 
-    await expect(service.findOne('world-cup-2002')).resolves.toMatchObject({
-      slug: 'world-cup-2002',
-    });
+    await expect(service.findOne(23)).resolves.toMatchObject({ id: 23 });
     await expect(
-      service.findTeams('world-cup-2002', { page: 1, limit: 20 }),
-    ).resolves.toMatchObject({ data: [{ slug: 'brazil' }] });
-    await service.findMatches('world-cup-2002', { page: 1, limit: 20 });
+      service.findTeams(23, { page: 1, limit: 20 }),
+    ).resolves.toMatchObject({ data: [{ id: 7 }] });
+    await service.findMatches(23, { page: 1, limit: 20 });
     expect(tournamentsRepository.findOneBy).toHaveBeenCalledWith({
-      slug: 'world-cup-2002',
+      public_id: 23,
     });
     expect(matchesService.findByTournament).toHaveBeenCalledWith(
-      'tournament-id',
+      'tournament-uuid',
       { page: 1, limit: 20 },
     );
   });
 
-  it('rejects an unknown slug before querying children', async () => {
+  it('rejects an unknown numeric ID before child queries', async () => {
     tournamentsRepository.findOneBy.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
+    await expect(service.findOne(999)).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    await expect(
-      service.findTeams('missing', { page: 1, limit: 20 }),
-    ).rejects.toBeInstanceOf(NotFoundException);
     expect(tournamentTeamsRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 });

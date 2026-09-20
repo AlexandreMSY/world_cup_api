@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class StadiumDto {
   @ApiProperty()
-  slug: string;
+  id: number;
 
   @ApiProperty()
   ground: string;

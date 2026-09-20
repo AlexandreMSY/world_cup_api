@@ -16,30 +16,30 @@ import { Player } from './entities/player.entity.js';
 
 function toPlayerDto(player: Player): PlayerDto {
   return {
-    slug: player.slug,
+    id: player.public_id,
     name: player.name,
-    team: { slug: player.team.slug, name: player.team.name },
+    team: { id: player.team.public_id, name: player.team.name },
   };
 }
 
 function toPlayerGoalDto(goal: Goal): PlayerGoalDto {
   return {
-    team: { slug: goal.team.slug, name: goal.team.name },
-    player: { slug: goal.player.slug, name: goal.player.name },
+    team: { id: goal.team.public_id, name: goal.team.name },
+    player: { id: goal.player.public_id, name: goal.player.name },
     minute: goal.minute,
     addedTime: goal.added_time,
     penalty: goal.penalty,
     ownGoal: goal.own_goal,
     match: {
-      slug: goal.match.slug,
+      id: goal.match.public_id,
       round: goal.match.round,
       date: goal.match.match_date,
       homeTeam: {
-        slug: goal.match.homeTeam.slug,
+        id: goal.match.homeTeam.public_id,
         name: goal.match.homeTeam.name,
       },
       awayTeam: {
-        slug: goal.match.awayTeam.slug,
+        id: goal.match.awayTeam.public_id,
         name: goal.match.awayTeam.name,
       },
     },
@@ -64,7 +64,7 @@ export class PlayersService {
       .createQueryBuilder('player')
       .innerJoinAndSelect('player.team', 'team')
       .orderBy('player.name', 'ASC')
-      .addOrderBy('player.slug', 'ASC')
+      .addOrderBy('player.public_id', 'ASC')
       .skip((pagination.page - 1) * pagination.limit)
       .take(pagination.limit)
       .getManyAndCount();
@@ -76,15 +76,15 @@ export class PlayersService {
     );
   }
 
-  async findOne(slug: string): Promise<PlayerDto> {
-    return toPlayerDto(await this.findEntity(slug));
+  async findOne(id: number): Promise<PlayerDto> {
+    return toPlayerDto(await this.findEntity(id));
   }
 
   async findMatches(
-    slug: string,
+    id: number,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<PlayerMatchSummaryDto>> {
-    const player = await this.findEntity(slug);
+    const player = await this.findEntity(id);
     const [appearances, totalItems] = await this.matchPlayersRepository
       .createQueryBuilder('appearance')
       .innerJoinAndSelect('appearance.match', 'match')
@@ -96,31 +96,31 @@ export class PlayersService {
         'appearance.id',
         'appearance.starter',
         'match.id',
-        'match.slug',
+        'match.public_id',
         'match.round',
         'match.match_date',
         'match.kickoff_time',
         'match.home_score',
         'match.away_score',
         'tournament.id',
-        'tournament.slug',
+        'tournament.public_id',
         'tournament.name',
         'tournament.year',
         'homeTeam.id',
-        'homeTeam.slug',
+        'homeTeam.public_id',
         'homeTeam.name',
         'awayTeam.id',
-        'awayTeam.slug',
+        'awayTeam.public_id',
         'awayTeam.name',
         'stadium.id',
-        'stadium.slug',
+        'stadium.public_id',
         'stadium.ground',
       ])
       .where('appearance.player_id = :playerId', { playerId: player.id })
       .distinct(true)
       .orderBy('match.match_date', 'ASC')
       .addOrderBy('match.kickoff_time', 'ASC', 'NULLS FIRST')
-      .addOrderBy('match.slug', 'ASC')
+      .addOrderBy('match.public_id', 'ASC')
       .skip((pagination.page - 1) * pagination.limit)
       .take(pagination.limit)
       .getManyAndCount();
@@ -136,10 +136,10 @@ export class PlayersService {
   }
 
   async findGoals(
-    slug: string,
+    id: number,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<PlayerGoalDto>> {
-    const player = await this.findEntity(slug);
+    const player = await this.findEntity(id);
     const [goals, totalItems] = await this.goalsRepository
       .createQueryBuilder('goal')
       .innerJoinAndSelect('goal.player', 'player')
@@ -154,20 +154,20 @@ export class PlayersService {
         'goal.penalty',
         'goal.own_goal',
         'player.id',
-        'player.slug',
+        'player.public_id',
         'player.name',
         'team.id',
-        'team.slug',
+        'team.public_id',
         'team.name',
         'match.id',
-        'match.slug',
+        'match.public_id',
         'match.round',
         'match.match_date',
         'homeTeam.id',
-        'homeTeam.slug',
+        'homeTeam.public_id',
         'homeTeam.name',
         'awayTeam.id',
-        'awayTeam.slug',
+        'awayTeam.public_id',
         'awayTeam.name',
       ])
       .where('goal.player_id = :playerId', { playerId: player.id })
@@ -186,11 +186,11 @@ export class PlayersService {
     );
   }
 
-  private async findEntity(slug: string): Promise<Player> {
+  private async findEntity(id: number): Promise<Player> {
     const player = await this.playersRepository
       .createQueryBuilder('player')
       .innerJoinAndSelect('player.team', 'team')
-      .where('player.slug = :slug', { slug })
+      .where('player.public_id = :id', { id })
       .getOne();
 
     if (!player) {

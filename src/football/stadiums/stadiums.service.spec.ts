@@ -23,59 +23,45 @@ describe('StadiumsService', () => {
     service = module.get(StadiumsService);
   });
 
-  it('returns slug-only stadiums in a deterministic pagination envelope', async () => {
+  it('returns numeric public IDs in a deterministic pagination envelope', async () => {
     stadiumsRepository.findAndCount.mockResolvedValue([
-      [
-        {
-          id: 'stadium-id',
-          slug: 'international-stadium',
-          ground: 'International Stadium',
-        },
-      ],
+      [{ id: 'stadium-uuid', public_id: 14, ground: 'International Stadium' }],
       1,
     ]);
 
     await expect(service.findAll({ page: 2, limit: 10 })).resolves.toEqual({
-      data: [
-        { slug: 'international-stadium', ground: 'International Stadium' },
-      ],
+      data: [{ id: 14, ground: 'International Stadium' }],
       meta: { page: 2, limit: 10, totalItems: 1, totalPages: 1 },
     });
     expect(stadiumsRepository.findAndCount).toHaveBeenCalledWith({
-      order: { ground: 'ASC', slug: 'ASC' },
+      order: { ground: 'ASC', public_id: 'ASC' },
       skip: 10,
       take: 10,
     });
   });
 
-  it('resolves a stadium slug and uses its UUID only for match queries', async () => {
+  it('resolves a public ID and uses the UUID only for match queries', async () => {
     stadiumsRepository.findOneBy.mockResolvedValue({
-      id: 'stadium-id',
-      slug: 'international-stadium',
+      id: 'stadium-uuid',
+      public_id: 14,
       ground: 'International Stadium',
     });
-    matchesService.findByStadium.mockResolvedValue({
-      data: [],
-      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
-    });
+    matchesService.findByStadium.mockResolvedValue({ data: [], meta: {} });
 
-    await expect(service.findOne('international-stadium')).resolves.toEqual({
-      slug: 'international-stadium',
-      ground: 'International Stadium',
+    await expect(service.findOne(14)).resolves.toMatchObject({ id: 14 });
+    await service.findMatches(14, { page: 1, limit: 20 });
+    expect(stadiumsRepository.findOneBy).toHaveBeenCalledWith({
+      public_id: 14,
     });
-    await service.findMatches('international-stadium', {
-      page: 1,
-      limit: 20,
-    });
-    expect(matchesService.findByStadium).toHaveBeenCalledWith('stadium-id', {
+    expect(matchesService.findByStadium).toHaveBeenCalledWith('stadium-uuid', {
       page: 1,
       limit: 20,
     });
   });
 
-  it('rejects an unknown slug', async () => {
+  it('rejects an unknown numeric ID', async () => {
     stadiumsRepository.findOneBy.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
+    await expect(service.findOne(999)).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });

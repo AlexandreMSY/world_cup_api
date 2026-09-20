@@ -13,7 +13,7 @@ import { Team } from '../football/teams/entities/team.entity.js';
 import { TournamentTeam } from '../football/tournaments/entities/tournament-team.entity.js';
 import { Tournament } from '../football/tournaments/entities/tournament.entity.js';
 import { InitialSchema1760000000000 } from './migrations/1760000000000-initial-schema.js';
-import { AddPublicSlugs1760000001000 } from './migrations/1760000001000-add-public-slugs.js';
+import { AddPublicIds1760000001000 } from './migrations/1760000001000-add-public-ids.js';
 
 export default new DataSource({
   type: 'postgres',
@@ -38,5 +38,5 @@ export default new DataSource({
     Booking,
     Substitution,
   ],
-  migrations: [InitialSchema1760000000000, AddPublicSlugs1760000001000],
+  migrations: [InitialSchema1760000000000, AddPublicIds1760000001000],
 });

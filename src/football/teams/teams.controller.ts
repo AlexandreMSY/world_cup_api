@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -33,22 +40,22 @@ export class TeamsController {
     return await this.teamsService.findAll(pagination);
   }
 
-  @Get(':slug')
+  @Get(':id')
   @ApiOperation({ summary: 'Get a football team' })
   @ApiOkResponse({ type: TeamDto })
   @ApiNotFoundResponse({ description: 'Team not found.' })
-  async findOne(@Param('slug') slug: string): Promise<TeamDto> {
-    return await this.teamsService.findOne(slug);
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<TeamDto> {
+    return await this.teamsService.findOne(id);
   }
 
-  @Get(':slug/matches')
+  @Get(':id/matches')
   @ApiOperation({ summary: 'List matches played by a football team' })
   @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Team not found.' })
   async findMatches(
-    @Param('slug') slug: string,
+    @Param('id', ParseIntPipe) id: number,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    return await this.teamsService.findMatches(slug, pagination);
+    return await this.teamsService.findMatches(id, pagination);
   }
 }

@@ -28,8 +28,8 @@ export class Match {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
-  slug: string;
+  @Column({ type: 'integer', unique: true, generated: 'increment' })
+  public_id: number;
 
   @ManyToOne(() => Tournament, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'tournament_id' })

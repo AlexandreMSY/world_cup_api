@@ -14,8 +14,8 @@ export class Player {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
-  slug: string;
+  @Column({ type: 'integer', unique: true, generated: 'increment' })
+  public_id: number;
 
   @ManyToOne(() => Team, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'team_id' })

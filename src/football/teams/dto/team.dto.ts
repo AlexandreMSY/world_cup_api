@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class TeamDto {
   @ApiProperty()
-  slug: string;
+  id: number;
 
   @ApiProperty()
   name: string;

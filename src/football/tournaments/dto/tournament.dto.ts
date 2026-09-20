@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class TournamentDto {
   @ApiProperty()
-  slug: string;
+  id: number;
 
   @ApiProperty()
   name: string;

@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -34,33 +41,33 @@ export class TournamentsController {
     return await this.tournamentsService.findAll(pagination);
   }
 
-  @Get(':slug')
+  @Get(':id')
   @ApiOperation({ summary: 'Get a World Cup tournament' })
   @ApiOkResponse({ type: TournamentDto })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
-  async findOne(@Param('slug') slug: string): Promise<TournamentDto> {
-    return await this.tournamentsService.findOne(slug);
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<TournamentDto> {
+    return await this.tournamentsService.findOne(id);
   }
 
-  @Get(':slug/teams')
+  @Get(':id/teams')
   @ApiOperation({ summary: 'List teams in a World Cup tournament' })
   @ApiOkResponse({ type: TeamDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
   async findTeams(
-    @Param('slug') slug: string,
+    @Param('id', ParseIntPipe) id: number,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
-    return await this.tournamentsService.findTeams(slug, pagination);
+    return await this.tournamentsService.findTeams(id, pagination);
   }
 
-  @Get(':slug/matches')
+  @Get(':id/matches')
   @ApiOperation({ summary: 'List matches in a World Cup tournament' })
   @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
   async findMatches(
-    @Param('slug') slug: string,
+    @Param('id', ParseIntPipe) id: number,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    return await this.tournamentsService.findMatches(slug, pagination);
+    return await this.tournamentsService.findMatches(id, pagination);
   }
 }

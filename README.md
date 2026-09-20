@@ -51,7 +51,7 @@ npm run migration:run
 npm run migration:show
 ```
 
-`migration:show` should show both `InitialSchema1760000000000` and `AddPublicSlugs1760000001000` as applied.
+`migration:show` should show both `InitialSchema1760000000000` and `AddPublicIds1760000001000` as applied.
 
 > The initial migration creates the complete schema, including `users` and `api_keys`. If the database contains tables created before migrations were introduced, do not run this migration over them. Use a disposable database/schema, or create a dedicated compatibility migration first.
 
@@ -79,7 +79,7 @@ Import every configured edition:
 npm run seed:football
 ```
 
-The importer uses a transaction per tournament, validates source structure before writing, continues after a failed edition, and exits with a non-zero status if any edition fails. It is idempotent: rerunning an edition updates its tournament/match records and replaces that match's imported lineups and event rows. It assigns and preserves stable public slugs when records are first created.
+The importer uses a transaction per tournament, validates source structure before writing, continues after a failed edition, and exits with a non-zero status if any edition fails. It is idempotent: rerunning an edition updates its tournament/match records and replaces that match's imported lineups and event rows. It uses database-generated public integer IDs.
 
 ## Authentication
 
@@ -123,32 +123,32 @@ Football endpoints require an API key in the `X-API-Key` header.
 
 `GET /` is a public health-style response. Authentication and API-key routes have their own requirements; all football routes below require `X-API-Key`.
 
-| Method   | Route                        | Purpose                                                   |
-| -------- | ---------------------------- | --------------------------------------------------------- |
-| `POST`   | `/auth/register`             | Register a user.                                          |
-| `POST`   | `/auth/login`                | Log in and receive a JWT.                                 |
-| `POST`   | `/api-key`                   | Generate an API key with a JWT Bearer token.              |
-| `DELETE` | `/api-key`                   | Deactivate the active API key with a JWT Bearer token.    |
-| `GET`    | `/tournaments`               | List World Cup editions.                                  |
-| `GET`    | `/tournaments/:slug`         | Get one tournament.                                       |
-| `GET`    | `/tournaments/:slug/teams`   | List teams in a tournament.                               |
-| `GET`    | `/tournaments/:slug/matches` | List a tournament's matches.                              |
-| `GET`    | `/teams`                     | List national teams.                                      |
-| `GET`    | `/teams/:slug`               | Get one team.                                             |
-| `GET`    | `/teams/:slug/matches`       | List a team's matches.                                    |
-| `GET`    | `/players`                   | List players with their team.                             |
-| `GET`    | `/players/:slug`             | Get one player.                                           |
-| `GET`    | `/players/:slug/matches`     | List a player's appearances, including `starter`.         |
-| `GET`    | `/players/:slug/goals`       | List a player's goals with basic match information.       |
-| `GET`    | `/matches`                   | List match summaries.                                     |
-| `GET`    | `/matches/:slug`             | Get a match, lineups, goals, substitutions, and bookings. |
-| `GET`    | `/matches/:slug/players`     | Get grouped home/away starting XI and bench players.      |
-| `GET`    | `/matches/:slug/goals`       | Get grouped chronological home/away goals.                |
-| `GET`    | `/stadiums`                  | List stadiums.                                            |
-| `GET`    | `/stadiums/:slug`            | Get one stadium.                                          |
-| `GET`    | `/stadiums/:slug/matches`    | List matches played at a stadium.                         |
+| Method   | Route                      | Purpose                                                   |
+| -------- | -------------------------- | --------------------------------------------------------- |
+| `POST`   | `/auth/register`           | Register a user.                                          |
+| `POST`   | `/auth/login`              | Log in and receive a JWT.                                 |
+| `POST`   | `/api-key`                 | Generate an API key with a JWT Bearer token.              |
+| `DELETE` | `/api-key`                 | Deactivate the active API key with a JWT Bearer token.    |
+| `GET`    | `/tournaments`             | List World Cup editions.                                  |
+| `GET`    | `/tournaments/:id`         | Get one tournament.                                       |
+| `GET`    | `/tournaments/:id/teams`   | List teams in a tournament.                               |
+| `GET`    | `/tournaments/:id/matches` | List a tournament's matches.                              |
+| `GET`    | `/teams`                   | List national teams.                                      |
+| `GET`    | `/teams/:id`               | Get one team.                                             |
+| `GET`    | `/teams/:id/matches`       | List a team's matches.                                    |
+| `GET`    | `/players`                 | List players with their team.                             |
+| `GET`    | `/players/:id`             | Get one player.                                           |
+| `GET`    | `/players/:id/matches`     | List a player's appearances, including `starter`.         |
+| `GET`    | `/players/:id/goals`       | List a player's goals with basic match information.       |
+| `GET`    | `/matches`                 | List match summaries.                                     |
+| `GET`    | `/matches/:id`             | Get a match, lineups, goals, substitutions, and bookings. |
+| `GET`    | `/matches/:id/players`     | Get grouped home/away starting XI and bench players.      |
+| `GET`    | `/matches/:id/goals`       | Get grouped chronological home/away goals.                |
+| `GET`    | `/stadiums`                | List stadiums.                                            |
+| `GET`    | `/stadiums/:id`            | Get one stadium.                                          |
+| `GET`    | `/stadiums/:id/matches`    | List matches played at a stadium.                         |
 
-Football responses expose `slug` rather than internal UUID `id` values, including nested tournament, team, stadium, player, and match references. UUIDs remain the database primary and foreign keys. Unknown public identifiers return `404`; UUID routes are not supported.
+Football responses expose numeric `id` values, including nested tournament, team, stadium, player, and match references. UUIDs remain internal database primary and foreign keys. Non-numeric route parameters return `400`; unknown numeric identifiers return `404`.
 
 ### Pagination
 
@@ -182,22 +182,22 @@ The application uses in-memory IP-based rate limiting: 100 requests per 60 secon
 
 ## Database schema
 
-The initial TypeORM migration creates the following PostgreSQL tables. UUIDs are generated for internal primary and foreign keys; football tables also store a unique public `slug`. Foreign keys use `ON DELETE RESTRICT` to preserve historical records.
+The initial TypeORM migration creates UUID primary and foreign keys. The public-ID migration adds a unique generated integer `public_id` to football resources; the API exposes it as `id`. Foreign keys use `ON DELETE RESTRICT` to preserve historical records.
 
-| Table              | Purpose                                  | Key relationships / constraints                                                                                                                                           |
-| ------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`            | Registered API users.                    | Unique `email`.                                                                                                                                                           |
-| `api_keys`         | Hashed API keys belonging to users.      | `user_id -> users`; unique nullable SHA-256 `key_fingerprint`; active flag.                                                                                               |
-| `tournaments`      | One World Cup edition.                   | Unique `(name, year)` and `slug`; includes `host`, `start_date`, `end_date`.                                                                                              |
-| `teams`            | National teams across editions.          | Unique `name`, `slug`, and nullable `code`.                                                                                                                               |
-| `tournament_teams` | Tournament/team membership.              | `tournament_id -> tournaments`, `team_id -> teams`; unique tournament/team pair; optional group name.                                                                     |
-| `players`          | Players representing a national team.    | `team_id -> teams`; unique `(team_id, name)` and `slug`.                                                                                                                  |
-| `stadiums`         | Source-provided stadium and city string. | Unique `ground` and `slug`.                                                                                                                                               |
-| `matches`          | Tournament fixtures and results.         | Unique `slug`; tournament, optional stadium, home team, away team; unique tournament/date/team pairing; different-team check; regulation, extra-time, and penalty scores. |
-| `match_players`    | Starting XI and bench selections.        | Match, player, and team references; unique `(match_id, player_id)`; includes captain flag.                                                                                |
-| `goals`            | Goals credited to a team.                | Match, player, and credited team references; minute, added time, penalty, and own-goal fields.                                                                            |
-| `bookings`         | Yellow, second-yellow, and red cards.    | Match, player, and team references; `card_type_enum`; minute and added time.                                                                                              |
-| `substitutions`    | Player changes during a match.           | Match, team, player-out, and player-in references; minute and added time.                                                                                                 |
+| Table              | Purpose                                  | Key relationships / constraints                                                                                                                                                          |
+| ------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`            | Registered API users.                    | Unique `email`.                                                                                                                                                                          |
+| `api_keys`         | Hashed API keys belonging to users.      | `user_id -> users`; unique nullable SHA-256 `key_fingerprint`; active flag.                                                                                                              |
+| `tournaments`      | One World Cup edition.                   | Unique `(name, year)` and generated `public_id`; includes `host`, `start_date`, `end_date`.                                                                                              |
+| `teams`            | National teams across editions.          | Unique `name`, generated `public_id`, and nullable `code`.                                                                                                                               |
+| `tournament_teams` | Tournament/team membership.              | `tournament_id -> tournaments`, `team_id -> teams`; unique tournament/team pair; optional group name.                                                                                    |
+| `players`          | Players representing a national team.    | `team_id -> teams`; unique `(team_id, name)` and generated `public_id`.                                                                                                                  |
+| `stadiums`         | Source-provided stadium and city string. | Unique `ground` and generated `public_id`.                                                                                                                                               |
+| `matches`          | Tournament fixtures and results.         | Unique generated `public_id`; tournament, optional stadium, home team, away team; unique tournament/date/team pairing; different-team check; regulation, extra-time, and penalty scores. |
+| `match_players`    | Starting XI and bench selections.        | Match, player, and team references; unique `(match_id, player_id)`; includes captain flag.                                                                                               |
+| `goals`            | Goals credited to a team.                | Match, player, and credited team references; minute, added time, penalty, and own-goal fields.                                                                                           |
+| `bookings`         | Yellow, second-yellow, and red cards.    | Match, player, and team references; `card_type_enum`; minute and added time.                                                                                                             |
+| `substitutions`    | Player changes during a match.           | Match, team, player-out, and player-in references; minute and added time.                                                                                                                |
 
 The importer preserves source semantics for own goals: the goal's team is the credited side, while the scorer belongs to the opposing team.
 

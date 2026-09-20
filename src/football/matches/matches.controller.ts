@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -37,27 +44,33 @@ export class MatchesController {
     return await this.matchesService.findAll(pagination);
   }
 
-  @Get(':slug/players')
+  @Get(':id/players')
   @ApiOperation({ summary: 'Get grouped player appearances for a match' })
   @ApiOkResponse({ type: MatchPlayersDto })
   @ApiNotFoundResponse({ description: 'Match not found.' })
-  async findPlayers(@Param('slug') slug: string): Promise<MatchPlayersDto> {
-    return await this.matchesService.findPlayers(slug);
+  async findPlayers(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MatchPlayersDto> {
+    return await this.matchesService.findPlayers(id);
   }
 
-  @Get(':slug/goals')
+  @Get(':id/goals')
   @ApiOperation({ summary: 'Get grouped goals for a match' })
   @ApiOkResponse({ type: MatchGoalsDto })
   @ApiNotFoundResponse({ description: 'Match not found.' })
-  async findGoals(@Param('slug') slug: string): Promise<MatchGoalsDto> {
-    return await this.matchesService.findGoals(slug);
+  async findGoals(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MatchGoalsDto> {
+    return await this.matchesService.findGoals(id);
   }
 
-  @Get(':slug')
+  @Get(':id')
   @ApiOperation({ summary: 'Get a football match with lineups and events' })
   @ApiOkResponse({ type: MatchDetailDto })
   @ApiNotFoundResponse({ description: 'Match not found.' })
-  async findOne(@Param('slug') slug: string): Promise<MatchDetailDto> {
-    return await this.matchesService.findOne(slug);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<MatchDetailDto> {
+    return await this.matchesService.findOne(id);
   }
 }

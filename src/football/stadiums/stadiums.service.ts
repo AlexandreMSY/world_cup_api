@@ -12,7 +12,7 @@ import { StadiumDto } from './dto/stadium.dto.js';
 import { Stadium } from './entities/stadium.entity.js';
 
 function toStadiumDto(stadium: Stadium): StadiumDto {
-  return { slug: stadium.slug, ground: stadium.ground };
+  return { id: stadium.public_id, ground: stadium.ground };
 }
 
 @Injectable()
@@ -27,7 +27,7 @@ export class StadiumsService {
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<StadiumDto>> {
     const [stadiums, totalItems] = await this.stadiumsRepository.findAndCount({
-      order: { ground: 'ASC', slug: 'ASC' },
+      order: { ground: 'ASC', public_id: 'ASC' },
       skip: (pagination.page - 1) * pagination.limit,
       take: pagination.limit,
     });
@@ -39,21 +39,21 @@ export class StadiumsService {
     );
   }
 
-  async findOne(slug: string): Promise<StadiumDto> {
-    return toStadiumDto(await this.findEntity(slug));
+  async findOne(id: number): Promise<StadiumDto> {
+    return toStadiumDto(await this.findEntity(id));
   }
 
   async findMatches(
-    slug: string,
+    id: number,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    const stadium = await this.findEntity(slug);
+    const stadium = await this.findEntity(id);
 
     return await this.matchesService.findByStadium(stadium.id, pagination);
   }
 
-  private async findEntity(slug: string): Promise<Stadium> {
-    const stadium = await this.stadiumsRepository.findOneBy({ slug });
+  private async findEntity(id: number): Promise<Stadium> {
+    const stadium = await this.stadiumsRepository.findOneBy({ public_id: id });
 
     if (!stadium) {
       throw new NotFoundException('Stadium not found');

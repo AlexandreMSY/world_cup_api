@@ -24,26 +24,26 @@ import { Match } from './entities/match.entity.js';
 
 export function toMatchSummaryDto(match: Match): MatchSummaryDto {
   return {
-    slug: match.slug,
+    id: match.public_id,
     tournament: {
-      slug: match.tournament.slug,
+      id: match.tournament.public_id,
       name: match.tournament.name,
       year: match.tournament.year,
     },
     round: match.round,
     date: match.match_date,
-    homeTeam: { slug: match.homeTeam.slug, name: match.homeTeam.name },
-    awayTeam: { slug: match.awayTeam.slug, name: match.awayTeam.name },
+    homeTeam: { id: match.homeTeam.public_id, name: match.homeTeam.name },
+    awayTeam: { id: match.awayTeam.public_id, name: match.awayTeam.name },
     score: { home: match.home_score, away: match.away_score },
     stadium: match.stadium
-      ? { slug: match.stadium.slug, ground: match.stadium.ground }
+      ? { id: match.stadium.public_id, ground: match.stadium.ground }
       : null,
   };
 }
 
 function toMatchPlayerDto(appearance: MatchPlayer): MatchPlayerDto {
   return {
-    slug: appearance.player.slug,
+    id: appearance.player.public_id,
     name: appearance.player.name,
     position: appearance.position,
     shirtNumber: appearance.shirt_number,
@@ -60,7 +60,7 @@ function createTeamPlayers(
   );
 
   return {
-    slug: team.slug,
+    id: team.public_id,
     name: team.name,
     startingXI: teamAppearances
       .filter((appearance) => appearance.starter)
@@ -83,8 +83,8 @@ function createPlayersDto(
 
 function toGoalDto(goal: Goal) {
   return {
-    team: { slug: goal.team.slug, name: goal.team.name },
-    player: { slug: goal.player.slug, name: goal.player.name },
+    team: { id: goal.team.public_id, name: goal.team.name },
+    player: { id: goal.player.public_id, name: goal.player.name },
     minute: goal.minute,
     addedTime: goal.added_time,
     penalty: goal.penalty,
@@ -127,24 +127,24 @@ export class MatchesService {
       .leftJoinAndSelect('match.stadium', 'stadium')
       .select([
         'match.id',
-        'match.slug',
+        'match.public_id',
         'match.round',
         'match.match_date',
         'match.kickoff_time',
         'match.home_score',
         'match.away_score',
         'tournament.id',
-        'tournament.slug',
+        'tournament.public_id',
         'tournament.name',
         'tournament.year',
         'homeTeam.id',
-        'homeTeam.slug',
+        'homeTeam.public_id',
         'homeTeam.name',
         'awayTeam.id',
-        'awayTeam.slug',
+        'awayTeam.public_id',
         'awayTeam.name',
         'stadium.id',
-        'stadium.slug',
+        'stadium.public_id',
         'stadium.ground',
       ]);
   }
@@ -156,7 +156,7 @@ export class MatchesService {
     const [matches, totalItems] = await query
       .orderBy('match.match_date', 'ASC')
       .addOrderBy('match.kickoff_time', 'ASC', 'NULLS FIRST')
-      .addOrderBy('match.slug', 'ASC')
+      .addOrderBy('match.public_id', 'ASC')
       .skip((pagination.page - 1) * pagination.limit)
       .take(pagination.limit)
       .getManyAndCount();
@@ -218,7 +218,7 @@ export class MatchesService {
     );
   }
 
-  async findOne(slug: string): Promise<MatchDetailDto> {
+  async findOne(id: number): Promise<MatchDetailDto> {
     const match = await this.createSummaryQuery()
       .addSelect([
         'match.home_score_et',
@@ -226,7 +226,7 @@ export class MatchesService {
         'match.home_score_penalties',
         'match.away_score_penalties',
       ])
-      .where('match.slug = :slug', { slug })
+      .where('match.public_id = :id', { id })
       .getOne();
 
     if (!match) {
@@ -259,23 +259,23 @@ export class MatchesService {
       goals: createGoalsDto(goals, match),
       substitutions: substitutions.map((substitution): SubstitutionDto => ({
         team: {
-          slug: substitution.team.slug,
+          id: substitution.team.public_id,
           name: substitution.team.name,
         },
         playerOut: {
-          slug: substitution.playerOut.slug,
+          id: substitution.playerOut.public_id,
           name: substitution.playerOut.name,
         },
         playerIn: {
-          slug: substitution.playerIn.slug,
+          id: substitution.playerIn.public_id,
           name: substitution.playerIn.name,
         },
         minute: substitution.minute,
         addedTime: substitution.added_time,
       })),
       bookings: bookings.map((booking): BookingDto => ({
-        team: { slug: booking.team.slug, name: booking.team.name },
-        player: { slug: booking.player.slug, name: booking.player.name },
+        team: { id: booking.team.public_id, name: booking.team.name },
+        player: { id: booking.player.public_id, name: booking.player.name },
         cardType: booking.card_type,
         minute: booking.minute,
         addedTime: booking.added_time,
@@ -283,23 +283,23 @@ export class MatchesService {
     };
   }
 
-  async findPlayers(slug: string): Promise<MatchPlayersDto> {
-    const match = await this.findMatchContext(slug);
+  async findPlayers(id: number): Promise<MatchPlayersDto> {
+    const match = await this.findMatchContext(id);
     const appearances = await this.findAppearancesByMatchId(match.id);
 
     return createPlayersDto(appearances, match);
   }
 
-  async findGoals(slug: string): Promise<MatchGoalsDto> {
-    const match = await this.findMatchContext(slug);
+  async findGoals(id: number): Promise<MatchGoalsDto> {
+    const match = await this.findMatchContext(id);
     const goals = await this.findGoalsByMatchId(match.id);
 
     return createGoalsDto(goals, match);
   }
 
-  private async findMatchContext(slug: string): Promise<Match> {
+  private async findMatchContext(id: number): Promise<Match> {
     const match = await this.createSummaryQuery()
-      .where('match.slug = :slug', { slug })
+      .where('match.public_id = :id', { id })
       .getOne();
 
     if (!match) {
@@ -317,7 +317,7 @@ export class MatchesService {
       .innerJoinAndSelect('appearance.player', 'player')
       .innerJoinAndSelect('appearance.team', 'team')
       .where('appearance.match_id = :matchId', { matchId })
-      .orderBy('team.slug', 'ASC')
+      .orderBy('team.public_id', 'ASC')
       .addOrderBy('appearance.starter', 'DESC')
       .addOrderBy('appearance.shirt_number', 'ASC', 'NULLS LAST')
       .addOrderBy('player.name', 'ASC')

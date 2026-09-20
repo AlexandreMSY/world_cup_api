@@ -6,7 +6,9 @@ import {
   createPaginatedResponse,
   PaginatedResponse,
 } from '../../common/pagination/pagination.js';
+import { TeamDto } from '../teams/dto/team.dto.js';
 import { TournamentDto } from './dto/tournament.dto.js';
+import { TournamentTeam } from './entities/tournament-team.entity.js';
 import { Tournament } from './entities/tournament.entity.js';
 
 function toTournamentDto(tournament: Tournament): TournamentDto {
@@ -25,6 +27,8 @@ export class TournamentsService {
   constructor(
     @InjectRepository(Tournament)
     private readonly tournamentsRepository: Repository<Tournament>,
+    @InjectRepository(TournamentTeam)
+    private readonly tournamentTeamsRepository: Repository<TournamentTeam>,
   ) {}
 
   async findAll(
@@ -60,5 +64,32 @@ export class TournamentsService {
     }
 
     return toTournamentDto(tournament);
+  }
+
+  async findTeams(
+    id: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<TeamDto>> {
+    await this.findOne(id);
+
+    const [tournamentTeams, totalItems] = await this.tournamentTeamsRepository
+      .createQueryBuilder('tournamentTeam')
+      .innerJoinAndSelect('tournamentTeam.team', 'team')
+      .where('tournamentTeam.tournament_id = :id', { id })
+      .orderBy('team.name', 'ASC')
+      .addOrderBy('team.id', 'ASC')
+      .skip((pagination.page - 1) * pagination.limit)
+      .take(pagination.limit)
+      .getManyAndCount();
+
+    return createPaginatedResponse(
+      tournamentTeams.map(({ team }) => ({
+        id: team.id,
+        name: team.name,
+        code: team.code,
+      })),
+      totalItems,
+      pagination,
+    );
   }
 }

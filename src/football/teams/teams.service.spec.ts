@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Team } from './entities/team.entity.js';
@@ -5,6 +6,7 @@ import { TeamsService } from './teams.service.js';
 
 const teamsRepository = {
   findAndCount: vi.fn(),
+  findOneBy: vi.fn(),
 };
 
 describe('TeamsService', () => {
@@ -41,5 +43,27 @@ describe('TeamsService', () => {
       skip: 10,
       take: 10,
     });
+  });
+
+  it('returns one team', async () => {
+    teamsRepository.findOneBy.mockResolvedValue({
+      id: 'team-id',
+      name: 'Brazil',
+      code: 'BRA',
+    });
+
+    await expect(service.findOne('team-id')).resolves.toEqual({
+      id: 'team-id',
+      name: 'Brazil',
+      code: 'BRA',
+    });
+  });
+
+  it('rejects a missing team', async () => {
+    teamsRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(service.findOne('missing-id')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

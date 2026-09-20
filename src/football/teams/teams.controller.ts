@@ -1,5 +1,13 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiSecurity,
@@ -29,5 +37,15 @@ export class TeamsController {
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
     return await this.teamsService.findAll(pagination);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a football team' })
+  @ApiOkResponse({ type: TeamDto })
+  @ApiNotFoundResponse({ description: 'Team not found.' })
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<TeamDto> {
+    return await this.teamsService.findOne(id);
   }
 }

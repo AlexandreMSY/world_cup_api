@@ -13,12 +13,15 @@ export class ApiKey {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
   @Column()
   key_hash: string;
+
+  @Column({ length: 64, nullable: true, unique: true })
+  key_fingerprint: string | null;
 
   @CreateDateColumn()
   created_at: Date;

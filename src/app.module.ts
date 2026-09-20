@@ -6,6 +6,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { InitialSchema1760000000000 } from './database/migrations/1760000000000-initial-schema.js';
 
 @Module({
   imports: [
@@ -17,7 +18,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      synchronize: true, // development only
+      synchronize: false,
+      migrations: [InitialSchema1760000000000],
+      migrationsRun: false,
     }),
     AuthModule,
     ApiKeysModule,

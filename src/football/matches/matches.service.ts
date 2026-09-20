@@ -91,4 +91,13 @@ export class MatchesService {
 
     return await this.paginateSummaryQuery(query, pagination);
   }
+
+  async findAll(
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    return await this.paginateSummaryQuery(
+      this.createSummaryQuery(),
+      pagination,
+    );
+  }
 }

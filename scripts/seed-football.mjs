@@ -130,6 +130,11 @@ export function deriveCardTypes(cards) {
       return 'yellow';
     }
 
+    if (card.type === 'Y/R') {
+      yellowCards.delete(key);
+      return 'second_yellow';
+    }
+
     if (card.type === 'R') {
       if (yellowCards.has(key)) {
         yellowCards.delete(key);

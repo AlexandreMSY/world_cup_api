@@ -266,6 +266,7 @@ export function parseMatchScore(score, homeGoals = [], awayGoals = []) {
 
   let regulationScore = fullTime;
 
+  // Legacy knockout files can omit ft, so credited goal events are the only safe regulation-score source.
   if (!regulationScore && extraTime) {
     regulationScore = [
       countRegulationGoals(homeGoals, 'home goals'),
@@ -664,6 +665,7 @@ async function importTournament(client, tournamentSource, parsedSource) {
       }
 
       for (const goal of match.goals[sideIndex]) {
+        // Goals are grouped by credited side, but an own-goal scorer belongs to the opponent.
         const playerTeamId =
           teamIds[resolveGoalPlayerTeam(sideIndex, goal.own_goal)];
         const player = await ensurePlayer(playerTeamId, goal.name);

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import argon2 from 'argon2';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { CreatedApiKeyDto } from './dto/created-api-key-dto.js';
 import { DeletedApiKeyDto } from './dto/deleted-api-key-dto.js';
@@ -26,9 +26,11 @@ export class ApiKeysService {
 
     const apiKey = randomBytes(32).toString('base64url');
     const hashedApiKey = await argon2.hash(apiKey);
+    const apiKeyFingerprint = createHash('sha256').update(apiKey).digest('hex');
     const newApiKey = this.apiKeysRepository.create({
       user: { id: userId } as User,
       key_hash: hashedApiKey,
+      key_fingerprint: apiKeyFingerprint,
       active: true,
     });
 

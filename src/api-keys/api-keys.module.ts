@@ -12,6 +12,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
   imports: [AuthModule, TypeOrmModule.forFeature([ApiKey, User])],
   controllers: [ApiKeysController],
   providers: [ApiKeysService, ApiKeyAuthGuard, JwtAuthGuard],
-  exports: [ApiKeyAuthGuard],
+  exports: [ApiKeyAuthGuard, TypeOrmModule],
 })
 export class ApiKeysModule {}

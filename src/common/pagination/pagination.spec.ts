@@ -27,6 +27,8 @@ describe('PaginationQueryDto', () => {
     { page: '1', limit: '0' },
     { page: '1.5', limit: '20' },
     { page: '1', limit: 'many' },
+    { page: 'Infinity', limit: '20' },
+    { page: '1', limit: 'Infinity' },
   ])('rejects invalid values: %o', async (query) => {
     const pagination = plainToInstance(PaginationQueryDto, query);
 

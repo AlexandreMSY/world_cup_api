@@ -7,7 +7,9 @@ function toPositiveInteger(value: unknown): number {
     return Number.NaN;
   }
 
-  return Number(value);
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) ? parsedValue : Number.NaN;
 }
 
 export class PaginationQueryDto {

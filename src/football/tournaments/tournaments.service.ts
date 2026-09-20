@@ -6,6 +6,8 @@ import {
   createPaginatedResponse,
   PaginatedResponse,
 } from '../../common/pagination/pagination.js';
+import { MatchSummaryDto } from '../matches/dto/match-summary.dto.js';
+import { MatchesService } from '../matches/matches.service.js';
 import { TeamDto } from '../teams/dto/team.dto.js';
 import { TournamentDto } from './dto/tournament.dto.js';
 import { TournamentTeam } from './entities/tournament-team.entity.js';
@@ -29,6 +31,7 @@ export class TournamentsService {
     private readonly tournamentsRepository: Repository<Tournament>,
     @InjectRepository(TournamentTeam)
     private readonly tournamentTeamsRepository: Repository<TournamentTeam>,
+    private readonly matchesService: MatchesService,
   ) {}
 
   async findAll(
@@ -91,5 +94,14 @@ export class TournamentsService {
       totalItems,
       pagination,
     );
+  }
+
+  async findMatches(
+    id: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    await this.findOne(id);
+
+    return await this.matchesService.findByTournament(id, pagination);
   }
 }

@@ -127,4 +127,17 @@ describe('MatchesService', () => {
     );
     expect(queryBuilder.distinct).toHaveBeenCalledWith(true);
   });
+
+  it('returns all match summaries with deterministic pagination', async () => {
+    queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await expect(service.findAll({ page: 1, limit: 20 })).resolves.toEqual({
+      data: [],
+      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+    });
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith(
+      'match.match_date',
+      'ASC',
+    );
+  });
 });

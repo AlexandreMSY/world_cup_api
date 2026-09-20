@@ -5,6 +5,14 @@ import {
   MatchScoreDto,
 } from '../../matches/dto/match-summary.dto.js';
 
+export class BasicPlayerDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  name: string;
+}
+
 export class GoalDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -12,8 +20,8 @@ export class GoalDto {
   @ApiProperty({ type: BasicTeamDto })
   team: BasicTeamDto;
 
-  @ApiProperty({ type: String })
-  player: { id: string; name: string };
+  @ApiProperty({ type: BasicPlayerDto })
+  player: BasicPlayerDto;
 
   @ApiProperty({ nullable: true, type: Number })
   minute: number | null;

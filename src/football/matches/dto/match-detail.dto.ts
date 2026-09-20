@@ -1,33 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CardType } from '../../bookings/entities/booking.entity.js';
 import { BasicPlayerDto, GoalDto } from '../../goals/dto/goal.dto.js';
-import { BasicTeamDto, MatchSummaryDto } from './match-summary.dto.js';
+import {
+  BasicTeamDto,
+  MatchScoreDto,
+  MatchSummaryDto,
+} from './match-summary.dto.js';
 
 export class MatchPlayerDto extends BasicPlayerDto {
+  @ApiProperty()
+  captain: boolean;
+
   @ApiProperty({ nullable: true, type: String })
   position: string | null;
 
   @ApiProperty({ nullable: true, type: Number })
   shirtNumber: number | null;
-
-  @ApiProperty()
-  captain: boolean;
 }
 
-export class TeamLineupDto {
+export class MatchTeamPlayersDto extends BasicTeamDto {
   @ApiProperty({ type: MatchPlayerDto, isArray: true })
-  startingXi: MatchPlayerDto[];
+  startingXI: MatchPlayerDto[];
 
   @ApiProperty({ type: MatchPlayerDto, isArray: true })
   bench: MatchPlayerDto[];
 }
 
-export class MatchLineupsDto {
-  @ApiProperty({ type: TeamLineupDto })
-  homeTeam: TeamLineupDto;
+export class MatchPlayersDto {
+  @ApiProperty({ type: MatchTeamPlayersDto })
+  homeTeam: MatchTeamPlayersDto;
 
-  @ApiProperty({ type: TeamLineupDto })
-  awayTeam: TeamLineupDto;
+  @ApiProperty({ type: MatchTeamPlayersDto })
+  awayTeam: MatchTeamPlayersDto;
 }
 
 export class MatchGoalsDto {
@@ -39,9 +43,6 @@ export class MatchGoalsDto {
 }
 
 export class SubstitutionDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
   @ApiProperty({ type: BasicTeamDto })
   team: BasicTeamDto;
 
@@ -59,9 +60,6 @@ export class SubstitutionDto {
 }
 
 export class BookingDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
   @ApiProperty({ type: BasicTeamDto })
   team: BasicTeamDto;
 
@@ -82,14 +80,14 @@ export class MatchDetailDto extends MatchSummaryDto {
   @ApiProperty({ nullable: true, type: String })
   kickoffTime: string | null;
 
-  @ApiProperty({ nullable: true, type: () => Object })
-  extraTimeScore: { home: number; away: number } | null;
+  @ApiProperty({ nullable: true, type: MatchScoreDto })
+  scoreExtraTime: MatchScoreDto | null;
 
-  @ApiProperty({ nullable: true, type: () => Object })
-  penaltyScore: { home: number; away: number } | null;
+  @ApiProperty({ nullable: true, type: MatchScoreDto })
+  scorePenalties: MatchScoreDto | null;
 
-  @ApiProperty({ type: MatchLineupsDto })
-  lineups: MatchLineupsDto;
+  @ApiProperty({ type: MatchPlayersDto })
+  players: MatchPlayersDto;
 
   @ApiProperty({ type: MatchGoalsDto })
   goals: MatchGoalsDto;

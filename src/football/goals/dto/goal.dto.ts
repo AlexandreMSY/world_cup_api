@@ -1,9 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  BasicTeamDto,
-  BasicTournamentDto,
-  MatchScoreDto,
-} from '../../matches/dto/match-summary.dto.js';
+import { BasicTeamDto } from '../../matches/dto/match-summary.dto.js';
 
 export class BasicPlayerDto {
   @ApiProperty({ format: 'uuid' })
@@ -14,9 +10,6 @@ export class BasicPlayerDto {
 }
 
 export class GoalDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
   @ApiProperty({ type: BasicTeamDto })
   team: BasicTeamDto;
 
@@ -40,9 +33,6 @@ export class BasicGoalMatchDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ type: BasicTournamentDto })
-  tournament: BasicTournamentDto;
-
   @ApiProperty()
   round: string;
 
@@ -54,9 +44,6 @@ export class BasicGoalMatchDto {
 
   @ApiProperty({ type: BasicTeamDto })
   awayTeam: BasicTeamDto;
-
-  @ApiProperty({ type: MatchScoreDto })
-  score: MatchScoreDto;
 }
 
 export class PlayerGoalDto extends GoalDto {

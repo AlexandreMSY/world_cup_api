@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
 import {
   createPaginatedResponse,
@@ -71,6 +71,23 @@ export class MatchesService {
       'match.tournament_id = :tournamentId',
       { tournamentId },
     );
+
+    return await this.paginateSummaryQuery(query, pagination);
+  }
+
+  async findByTeam(
+    teamId: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    const query = this.createSummaryQuery()
+      .where(
+        new Brackets((where) => {
+          where
+            .where('match.home_team_id = :teamId', { teamId })
+            .orWhere('match.away_team_id = :teamId', { teamId });
+        }),
+      )
+      .distinct(true);
 
     return await this.paginateSummaryQuery(query, pagination);
   }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
@@ -34,5 +34,15 @@ export class StadiumsService {
       totalItems,
       pagination,
     );
+  }
+
+  async findOne(id: string): Promise<StadiumDto> {
+    const stadium = await this.stadiumsRepository.findOneBy({ id });
+
+    if (!stadium) {
+      throw new NotFoundException('Stadium not found');
+    }
+
+    return toStadiumDto(stadium);
   }
 }

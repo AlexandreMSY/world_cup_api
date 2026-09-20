@@ -6,8 +6,10 @@ import {
   createPaginatedResponse,
   PaginatedResponse,
 } from '../../common/pagination/pagination.js';
+import { Goal } from '../goals/entities/goal.entity.js';
 import { MatchPlayer } from '../matches/entities/match-player.entity.js';
 import { toMatchSummaryDto } from '../matches/matches.service.js';
+import { PlayerGoalDto } from '../goals/dto/goal.dto.js';
 import { PlayerMatchSummaryDto } from './dto/player-match-summary.dto.js';
 import { PlayerDto } from './dto/player.dto.js';
 import { Player } from './entities/player.entity.js';
@@ -20,6 +22,40 @@ function toPlayerDto(player: Player): PlayerDto {
   };
 }
 
+function toPlayerGoalDto(goal: Goal): PlayerGoalDto {
+  return {
+    id: goal.id,
+    team: { id: goal.team.id, name: goal.team.name },
+    player: { id: goal.player.id, name: goal.player.name },
+    minute: goal.minute,
+    addedTime: goal.added_time,
+    penalty: goal.penalty,
+    ownGoal: goal.own_goal,
+    match: {
+      id: goal.match.id,
+      tournament: {
+        id: goal.match.tournament.id,
+        name: goal.match.tournament.name,
+        year: goal.match.tournament.year,
+      },
+      round: goal.match.round,
+      date: goal.match.match_date,
+      homeTeam: {
+        id: goal.match.homeTeam.id,
+        name: goal.match.homeTeam.name,
+      },
+      awayTeam: {
+        id: goal.match.awayTeam.id,
+        name: goal.match.awayTeam.name,
+      },
+      score: {
+        home: goal.match.home_score,
+        away: goal.match.away_score,
+      },
+    },
+  };
+}
+
 @Injectable()
 export class PlayersService {
   constructor(
@@ -27,6 +63,8 @@ export class PlayersService {
     private readonly playersRepository: Repository<Player>,
     @InjectRepository(MatchPlayer)
     private readonly matchPlayersRepository: Repository<MatchPlayer>,
+    @InjectRepository(Goal)
+    private readonly goalsRepository: Repository<Goal>,
   ) {}
 
   async findAll(
@@ -89,6 +127,36 @@ export class PlayersService {
         ...toMatchSummaryDto(appearance.match),
         starter: appearance.starter,
       })),
+      totalItems,
+      pagination,
+    );
+  }
+
+  async findGoals(
+    id: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PlayerGoalDto>> {
+    await this.findOne(id);
+
+    const [goals, totalItems] = await this.goalsRepository
+      .createQueryBuilder('goal')
+      .innerJoinAndSelect('goal.player', 'player')
+      .innerJoinAndSelect('goal.team', 'team')
+      .innerJoinAndSelect('goal.match', 'match')
+      .innerJoinAndSelect('match.tournament', 'tournament')
+      .innerJoinAndSelect('match.homeTeam', 'homeTeam')
+      .innerJoinAndSelect('match.awayTeam', 'awayTeam')
+      .where('goal.player_id = :id', { id })
+      .orderBy('match.match_date', 'ASC')
+      .addOrderBy('goal.minute', 'ASC', 'NULLS LAST')
+      .addOrderBy('goal.added_time', 'ASC', 'NULLS FIRST')
+      .addOrderBy('goal.id', 'ASC')
+      .skip((pagination.page - 1) * pagination.limit)
+      .take(pagination.limit)
+      .getManyAndCount();
+
+    return createPaginatedResponse(
+      goals.map(toPlayerGoalDto),
       totalItems,
       pagination,
     );

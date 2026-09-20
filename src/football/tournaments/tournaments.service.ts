@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
@@ -50,5 +50,15 @@ export class TournamentsService {
       totalItems,
       pagination,
     );
+  }
+
+  async findOne(id: string): Promise<TournamentDto> {
+    const tournament = await this.tournamentsRepository.findOneBy({ id });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    return toTournamentDto(tournament);
   }
 }

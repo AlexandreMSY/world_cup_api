@@ -20,7 +20,7 @@ export class ApiKey {
   @Column()
   key_hash: string;
 
-  @Column({ length: 64, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
   key_fingerprint: string | null;
 
   @CreateDateColumn()

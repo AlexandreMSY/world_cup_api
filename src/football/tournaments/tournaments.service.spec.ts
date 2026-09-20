@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tournament } from './entities/tournament.entity.js';
@@ -5,6 +6,7 @@ import { TournamentsService } from './tournaments.service.js';
 
 const tournamentsRepository = {
   findAndCount: vi.fn(),
+  findOneBy: vi.fn(),
 };
 
 describe('TournamentsService', () => {
@@ -59,6 +61,30 @@ describe('TournamentsService', () => {
         skip: 0,
         take: 20,
       }),
+    );
+  });
+  it('returns one tournament', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue({
+      id: 'tournament-id',
+      name: 'FIFA World Cup',
+      year: 2002,
+      host: null,
+      start_date: null,
+      end_date: null,
+    });
+
+    await expect(service.findOne('tournament-id')).resolves.toMatchObject({
+      id: 'tournament-id',
+      startDate: null,
+      endDate: null,
+    });
+  });
+
+  it('rejects a missing tournament', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(service.findOne('missing-id')).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });

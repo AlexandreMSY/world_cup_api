@@ -10,6 +10,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InitialSchema1760000000000 } from './database/migrations/1760000000000-initial-schema.js';
 import { RATE_LIMIT } from './config/rate-limit.config.js';
+import { FootballModule } from './football/football.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RATE_LIMIT } from './config/rate-limit.config.js';
     }),
     AuthModule,
     ApiKeysModule,
+    FootballModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

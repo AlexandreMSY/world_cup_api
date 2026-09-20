@@ -12,6 +12,8 @@ function createQueryBuilderMock() {
   const query = {
     innerJoinAndSelect: vi.fn(),
     leftJoinAndSelect: vi.fn(),
+    select: vi.fn(),
+    addSelect: vi.fn(),
     where: vi.fn(),
     distinct: vi.fn(),
     orderBy: vi.fn(),
@@ -26,6 +28,8 @@ function createQueryBuilderMock() {
   for (const method of [
     'innerJoinAndSelect',
     'leftJoinAndSelect',
+    'select',
+    'addSelect',
     'where',
     'distinct',
     'orderBy',
@@ -194,7 +198,6 @@ describe('MatchesService', () => {
     ]);
     bookingsQuery.getMany.mockResolvedValue([
       {
-        id: 'booking-id',
         team: match.homeTeam,
         player: { id: 'home-player', name: 'Oliver Kahn' },
         card_type: CardType.YELLOW,
@@ -210,31 +213,37 @@ describe('MatchesService', () => {
       score: { home: 0, away: 2 },
       stadium: null,
       kickoffTime: '20:00:00',
-      extraTimeScore: null,
-      penaltyScore: null,
-      lineups: {
+      scoreExtraTime: null,
+      scorePenalties: null,
+      players: {
         homeTeam: {
-          startingXi: [{ id: 'home-player', captain: true }],
+          startingXI: [{ id: 'home-player', captain: true }],
           bench: [],
         },
         awayTeam: {
-          startingXi: [],
+          startingXI: [],
           bench: [{ id: 'away-player', shirtNumber: 9 }],
         },
       },
       goals: {
         homeTeam: [],
-        awayTeam: [{ id: 'goal-away', minute: 67 }],
+        awayTeam: [{ minute: 67 }],
       },
-      substitutions: [{ id: 'substitution-id', minute: 85 }],
+      substitutions: [{ minute: 85 }],
       bookings: [
         {
-          id: 'booking-id',
           cardType: CardType.YELLOW,
           addedTime: 1,
         },
       ],
     });
+    expect(result.players.homeTeam).toMatchObject({
+      id: 'home-id',
+      name: 'Germany',
+    });
+    expect(result.goals.awayTeam[0]).not.toHaveProperty('id');
+    expect(result.substitutions[0]).not.toHaveProperty('id');
+    expect(result.bookings[0]).not.toHaveProperty('id');
     expect(matchesRepository.createQueryBuilder).toHaveBeenCalledOnce();
     expect(matchPlayersRepository.createQueryBuilder).toHaveBeenCalledOnce();
     expect(goalsRepository.createQueryBuilder).toHaveBeenCalledOnce();

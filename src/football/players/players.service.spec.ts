@@ -10,6 +10,7 @@ function createQueryBuilderMock() {
   const query = {
     innerJoinAndSelect: vi.fn(),
     leftJoinAndSelect: vi.fn(),
+    select: vi.fn(),
     where: vi.fn(),
     distinct: vi.fn(),
     orderBy: vi.fn(),
@@ -23,6 +24,7 @@ function createQueryBuilderMock() {
   for (const method of [
     'innerJoinAndSelect',
     'leftJoinAndSelect',
+    'select',
     'where',
     'distinct',
     'orderBy',
@@ -189,7 +191,6 @@ describe('PlayersService', () => {
     goalsQuery.getManyAndCount.mockResolvedValue([
       [
         {
-          id: 'goal-id',
           player: { id: 'player-id', name: 'Ronaldo' },
           team: { id: 'team-id', name: 'Brazil' },
           minute: 67,
@@ -221,15 +222,16 @@ describe('PlayersService', () => {
     });
 
     expect(result.data[0]).toMatchObject({
-      id: 'goal-id',
       minute: 67,
       addedTime: null,
       match: {
         id: 'match-id',
         date: '2002-06-30',
-        score: { home: 0, away: 2 },
       },
     });
+    expect(result.data[0]).not.toHaveProperty('id');
+    expect(result.data[0].match).not.toHaveProperty('tournament');
+    expect(result.data[0].match).not.toHaveProperty('score');
     expect(goalsQuery.orderBy).toHaveBeenCalledWith('match.match_date', 'ASC');
     expect(goalsQuery.addOrderBy).toHaveBeenCalledWith(
       'goal.minute',

@@ -14,7 +14,7 @@ import {
   MatchDetailDto,
   MatchPlayerDto,
   SubstitutionDto,
-  TeamLineupDto,
+  MatchTeamPlayersDto,
 } from './dto/match-detail.dto.js';
 import { MatchSummaryDto } from './dto/match-summary.dto.js';
 import { MatchPlayer } from './entities/match-player.entity.js';
@@ -49,16 +49,18 @@ function toMatchPlayerDto(appearance: MatchPlayer): MatchPlayerDto {
   };
 }
 
-function createTeamLineup(
+function createTeamPlayers(
   appearances: MatchPlayer[],
-  teamId: string,
-): TeamLineupDto {
+  team: Match['homeTeam'],
+): MatchTeamPlayersDto {
   const teamAppearances = appearances.filter(
-    (appearance) => appearance.team.id === teamId,
+    (appearance) => appearance.team.id === team.id,
   );
 
   return {
-    startingXi: teamAppearances
+    id: team.id,
+    name: team.name,
+    startingXI: teamAppearances
       .filter((appearance) => appearance.starter)
       .map(toMatchPlayerDto),
     bench: teamAppearances
@@ -88,7 +90,24 @@ export class MatchesService {
       .innerJoinAndSelect('match.tournament', 'tournament')
       .innerJoinAndSelect('match.homeTeam', 'homeTeam')
       .innerJoinAndSelect('match.awayTeam', 'awayTeam')
-      .leftJoinAndSelect('match.stadium', 'stadium');
+      .leftJoinAndSelect('match.stadium', 'stadium')
+      .select([
+        'match.id',
+        'match.round',
+        'match.match_date',
+        'match.kickoff_time',
+        'match.home_score',
+        'match.away_score',
+        'tournament.id',
+        'tournament.name',
+        'tournament.year',
+        'homeTeam.id',
+        'homeTeam.name',
+        'awayTeam.id',
+        'awayTeam.name',
+        'stadium.id',
+        'stadium.ground',
+      ]);
   }
 
   private async paginateSummaryQuery(
@@ -161,6 +180,12 @@ export class MatchesService {
   }
   async findOne(id: string): Promise<MatchDetailDto> {
     const match = await this.createSummaryQuery()
+      .addSelect([
+        'match.home_score_et',
+        'match.away_score_et',
+        'match.home_score_penalties',
+        'match.away_score_penalties',
+      ])
       .where('match.id = :id', { id })
       .getOne();
 
@@ -177,7 +202,6 @@ export class MatchesService {
 
     // Goal ownership uses the credited team, so own goals appear for the opponent.
     const toGoalDto = (goal: Goal) => ({
-      id: goal.id,
       team: { id: goal.team.id, name: goal.team.name },
       player: { id: goal.player.id, name: goal.player.name },
       minute: goal.minute,
@@ -189,11 +213,11 @@ export class MatchesService {
     return {
       ...toMatchSummaryDto(match),
       kickoffTime: match.kickoff_time,
-      extraTimeScore:
+      scoreExtraTime:
         match.home_score_et === null || match.away_score_et === null
           ? null
           : { home: match.home_score_et, away: match.away_score_et },
-      penaltyScore:
+      scorePenalties:
         match.home_score_penalties === null ||
         match.away_score_penalties === null
           ? null
@@ -201,9 +225,9 @@ export class MatchesService {
               home: match.home_score_penalties,
               away: match.away_score_penalties,
             },
-      lineups: {
-        homeTeam: createTeamLineup(appearances, match.homeTeam.id),
-        awayTeam: createTeamLineup(appearances, match.awayTeam.id),
+      players: {
+        homeTeam: createTeamPlayers(appearances, match.homeTeam),
+        awayTeam: createTeamPlayers(appearances, match.awayTeam),
       },
       goals: {
         homeTeam: goals
@@ -214,7 +238,6 @@ export class MatchesService {
           .map(toGoalDto),
       },
       substitutions: substitutions.map((substitution): SubstitutionDto => ({
-        id: substitution.id,
         team: {
           id: substitution.team.id,
           name: substitution.team.name,
@@ -231,7 +254,6 @@ export class MatchesService {
         addedTime: substitution.added_time,
       })),
       bookings: bookings.map((booking): BookingDto => ({
-        id: booking.id,
         team: { id: booking.team.id, name: booking.team.name },
         player: { id: booking.player.id, name: booking.player.name },
         cardType: booking.card_type,

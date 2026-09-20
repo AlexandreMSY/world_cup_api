@@ -24,7 +24,6 @@ function toPlayerDto(player: Player): PlayerDto {
 
 function toPlayerGoalDto(goal: Goal): PlayerGoalDto {
   return {
-    id: goal.id,
     team: { id: goal.team.id, name: goal.team.name },
     player: { id: goal.player.id, name: goal.player.name },
     minute: goal.minute,
@@ -33,11 +32,6 @@ function toPlayerGoalDto(goal: Goal): PlayerGoalDto {
     ownGoal: goal.own_goal,
     match: {
       id: goal.match.id,
-      tournament: {
-        id: goal.match.tournament.id,
-        name: goal.match.tournament.name,
-        year: goal.match.tournament.year,
-      },
       round: goal.match.round,
       date: goal.match.match_date,
       homeTeam: {
@@ -47,10 +41,6 @@ function toPlayerGoalDto(goal: Goal): PlayerGoalDto {
       awayTeam: {
         id: goal.match.awayTeam.id,
         name: goal.match.awayTeam.name,
-      },
-      score: {
-        home: goal.match.home_score,
-        away: goal.match.away_score,
       },
     },
   };
@@ -113,6 +103,25 @@ export class PlayersService {
       .innerJoinAndSelect('match.homeTeam', 'homeTeam')
       .innerJoinAndSelect('match.awayTeam', 'awayTeam')
       .leftJoinAndSelect('match.stadium', 'stadium')
+      .select([
+        'appearance.id',
+        'appearance.starter',
+        'match.id',
+        'match.round',
+        'match.match_date',
+        'match.kickoff_time',
+        'match.home_score',
+        'match.away_score',
+        'tournament.id',
+        'tournament.name',
+        'tournament.year',
+        'homeTeam.id',
+        'homeTeam.name',
+        'awayTeam.id',
+        'awayTeam.name',
+        'stadium.id',
+        'stadium.ground',
+      ])
       .where('appearance.player_id = :id', { id })
       .distinct(true)
       .orderBy('match.match_date', 'ASC')
@@ -143,9 +152,26 @@ export class PlayersService {
       .innerJoinAndSelect('goal.player', 'player')
       .innerJoinAndSelect('goal.team', 'team')
       .innerJoinAndSelect('goal.match', 'match')
-      .innerJoinAndSelect('match.tournament', 'tournament')
       .innerJoinAndSelect('match.homeTeam', 'homeTeam')
       .innerJoinAndSelect('match.awayTeam', 'awayTeam')
+      .select([
+        'goal.id',
+        'goal.minute',
+        'goal.added_time',
+        'goal.penalty',
+        'goal.own_goal',
+        'player.id',
+        'player.name',
+        'team.id',
+        'team.name',
+        'match.id',
+        'match.round',
+        'match.match_date',
+        'homeTeam.id',
+        'homeTeam.name',
+        'awayTeam.id',
+        'awayTeam.name',
+      ])
       .where('goal.player_id = :id', { id })
       .orderBy('match.match_date', 'ASC')
       .addOrderBy('goal.minute', 'ASC', 'NULLS LAST')

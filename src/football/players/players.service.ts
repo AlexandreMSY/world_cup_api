@@ -6,6 +6,9 @@ import {
   createPaginatedResponse,
   PaginatedResponse,
 } from '../../common/pagination/pagination.js';
+import { MatchPlayer } from '../matches/entities/match-player.entity.js';
+import { toMatchSummaryDto } from '../matches/matches.service.js';
+import { PlayerMatchSummaryDto } from './dto/player-match-summary.dto.js';
 import { PlayerDto } from './dto/player.dto.js';
 import { Player } from './entities/player.entity.js';
 
@@ -22,6 +25,8 @@ export class PlayersService {
   constructor(
     @InjectRepository(Player)
     private readonly playersRepository: Repository<Player>,
+    @InjectRepository(MatchPlayer)
+    private readonly matchPlayersRepository: Repository<MatchPlayer>,
   ) {}
 
   async findAll(
@@ -55,5 +60,37 @@ export class PlayersService {
     }
 
     return toPlayerDto(player);
+  }
+
+  async findMatches(
+    id: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PlayerMatchSummaryDto>> {
+    await this.findOne(id);
+
+    const [appearances, totalItems] = await this.matchPlayersRepository
+      .createQueryBuilder('appearance')
+      .innerJoinAndSelect('appearance.match', 'match')
+      .innerJoinAndSelect('match.tournament', 'tournament')
+      .innerJoinAndSelect('match.homeTeam', 'homeTeam')
+      .innerJoinAndSelect('match.awayTeam', 'awayTeam')
+      .leftJoinAndSelect('match.stadium', 'stadium')
+      .where('appearance.player_id = :id', { id })
+      .distinct(true)
+      .orderBy('match.match_date', 'ASC')
+      .addOrderBy('match.kickoff_time', 'ASC', 'NULLS FIRST')
+      .addOrderBy('match.id', 'ASC')
+      .skip((pagination.page - 1) * pagination.limit)
+      .take(pagination.limit)
+      .getManyAndCount();
+
+    return createPaginatedResponse(
+      appearances.map((appearance) => ({
+        ...toMatchSummaryDto(appearance.match),
+        starter: appearance.starter,
+      })),
+      totalItems,
+      pagination,
+    );
   }
 }

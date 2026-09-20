@@ -17,6 +17,7 @@ import {
 import { ApiKeyAuthGuard } from '../../api-keys/guards/api-key-auth.guard.js';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
 import { PaginatedResponse } from '../../common/pagination/pagination.js';
+import { PlayerMatchSummaryDto } from './dto/player-match-summary.dto.js';
 import { PlayerDto } from './dto/player.dto.js';
 import { PlayersService } from './players.service.js';
 
@@ -47,5 +48,16 @@ export class PlayersController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<PlayerDto> {
     return await this.playersService.findOne(id);
+  }
+
+  @Get(':id/matches')
+  @ApiOperation({ summary: 'List matches played by a football player' })
+  @ApiOkResponse({ type: PlayerMatchSummaryDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Player not found.' })
+  async findMatches(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PlayerMatchSummaryDto>> {
+    return await this.playersService.findMatches(id, pagination);
   }
 }

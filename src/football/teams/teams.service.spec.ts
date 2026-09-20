@@ -5,80 +5,45 @@ import { MatchesService } from '../matches/matches.service.js';
 import { Team } from './entities/team.entity.js';
 import { TeamsService } from './teams.service.js';
 
-const teamsRepository = {
-  findAndCount: vi.fn(),
-  findOneBy: vi.fn(),
-};
-
-const matchesService = {
-  findByTeam: vi.fn(),
-};
+const teamsRepository = { findAndCount: vi.fn(), findOneBy: vi.fn() };
+const matchesService = { findByTeam: vi.fn() };
 
 describe('TeamsService', () => {
   let service: TeamsService;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-
     const module = await Test.createTestingModule({
       providers: [
         TeamsService,
-        {
-          provide: getRepositoryToken(Team),
-          useValue: teamsRepository,
-        },
-        {
-          provide: MatchesService,
-          useValue: matchesService,
-        },
+        { provide: getRepositoryToken(Team), useValue: teamsRepository },
+        { provide: MatchesService, useValue: matchesService },
       ],
     }).compile();
-
     service = module.get(TeamsService);
   });
 
-  it('returns deterministically ordered teams in a pagination envelope', async () => {
+  it('returns slug-only teams in a deterministic pagination envelope', async () => {
     teamsRepository.findAndCount.mockResolvedValue([
-      [{ id: 'team-id', name: 'Brazil', code: 'BRA' }],
+      [{ id: 'team-id', slug: 'brazil', name: 'Brazil', code: 'BRA' }],
       1,
     ]);
 
     await expect(service.findAll({ page: 2, limit: 10 })).resolves.toEqual({
-      data: [{ id: 'team-id', name: 'Brazil', code: 'BRA' }],
+      data: [{ slug: 'brazil', name: 'Brazil', code: 'BRA' }],
       meta: { page: 2, limit: 10, totalItems: 1, totalPages: 1 },
     });
     expect(teamsRepository.findAndCount).toHaveBeenCalledWith({
-      order: { name: 'ASC', id: 'ASC' },
+      order: { name: 'ASC', slug: 'ASC' },
       skip: 10,
       take: 10,
     });
   });
 
-  it('returns one team', async () => {
+  it('resolves a team slug and uses its UUID only for match queries', async () => {
     teamsRepository.findOneBy.mockResolvedValue({
       id: 'team-id',
-      name: 'Brazil',
-      code: 'BRA',
-    });
-
-    await expect(service.findOne('team-id')).resolves.toEqual({
-      id: 'team-id',
-      name: 'Brazil',
-      code: 'BRA',
-    });
-  });
-
-  it('rejects a missing team', async () => {
-    teamsRepository.findOneBy.mockResolvedValue(null);
-
-    await expect(service.findOne('missing-id')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
-  });
-
-  it('returns team matches after validating the parent', async () => {
-    teamsRepository.findOneBy.mockResolvedValue({
-      id: 'team-id',
+      slug: 'brazil',
       name: 'Brazil',
       code: 'BRA',
     });
@@ -87,23 +52,27 @@ describe('TeamsService', () => {
       meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
     });
 
-    await expect(
-      service.findMatches('team-id', { page: 1, limit: 20 }),
-    ).resolves.toEqual({
-      data: [],
-      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+    await expect(service.findOne('brazil')).resolves.toEqual({
+      slug: 'brazil',
+      name: 'Brazil',
+      code: 'BRA',
     });
+    await service.findMatches('brazil', { page: 1, limit: 20 });
+    expect(teamsRepository.findOneBy).toHaveBeenCalledWith({ slug: 'brazil' });
     expect(matchesService.findByTeam).toHaveBeenCalledWith('team-id', {
       page: 1,
       limit: 20,
     });
   });
 
-  it('does not query matches when the team is missing', async () => {
+  it('rejects an unknown slug before querying matches', async () => {
     teamsRepository.findOneBy.mockResolvedValue(null);
 
+    await expect(service.findOne('missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     await expect(
-      service.findMatches('missing-id', { page: 1, limit: 20 }),
+      service.findMatches('missing', { page: 1, limit: 20 }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(matchesService.findByTeam).not.toHaveBeenCalled();
   });

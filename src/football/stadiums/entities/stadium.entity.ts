@@ -6,5 +6,8 @@ export class Stadium {
   id: string;
 
   @Column({ type: 'varchar', unique: true })
+  slug: string;
+
+  @Column({ type: 'varchar', unique: true })
   ground: string;
 }

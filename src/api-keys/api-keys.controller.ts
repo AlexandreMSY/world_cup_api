@@ -29,7 +29,9 @@ export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Generate an API key' })
+  @ApiOperation({
+    summary: 'Generate an API key to be used for football api access',
+  })
   @ApiCreatedResponse({
     description: 'A new API key. Save it now; it cannot be retrieved again.',
     type: CreatedApiKeyDto,

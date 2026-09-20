@@ -12,9 +12,11 @@ import {
 import {
   BookingDto,
   MatchDetailDto,
+  MatchGoalsDto,
   MatchPlayerDto,
-  SubstitutionDto,
+  MatchPlayersDto,
   MatchTeamPlayersDto,
+  SubstitutionDto,
 } from './dto/match-detail.dto.js';
 import { MatchSummaryDto } from './dto/match-summary.dto.js';
 import { MatchPlayer } from './entities/match-player.entity.js';
@@ -22,26 +24,26 @@ import { Match } from './entities/match.entity.js';
 
 export function toMatchSummaryDto(match: Match): MatchSummaryDto {
   return {
-    id: match.id,
+    slug: match.slug,
     tournament: {
-      id: match.tournament.id,
+      slug: match.tournament.slug,
       name: match.tournament.name,
       year: match.tournament.year,
     },
     round: match.round,
     date: match.match_date,
-    homeTeam: { id: match.homeTeam.id, name: match.homeTeam.name },
-    awayTeam: { id: match.awayTeam.id, name: match.awayTeam.name },
+    homeTeam: { slug: match.homeTeam.slug, name: match.homeTeam.name },
+    awayTeam: { slug: match.awayTeam.slug, name: match.awayTeam.name },
     score: { home: match.home_score, away: match.away_score },
     stadium: match.stadium
-      ? { id: match.stadium.id, ground: match.stadium.ground }
+      ? { slug: match.stadium.slug, ground: match.stadium.ground }
       : null,
   };
 }
 
 function toMatchPlayerDto(appearance: MatchPlayer): MatchPlayerDto {
   return {
-    id: appearance.player.id,
+    slug: appearance.player.slug,
     name: appearance.player.name,
     position: appearance.position,
     shirtNumber: appearance.shirt_number,
@@ -58,7 +60,7 @@ function createTeamPlayers(
   );
 
   return {
-    id: team.id,
+    slug: team.slug,
     name: team.name,
     startingXI: teamAppearances
       .filter((appearance) => appearance.starter)
@@ -66,6 +68,38 @@ function createTeamPlayers(
     bench: teamAppearances
       .filter((appearance) => !appearance.starter)
       .map(toMatchPlayerDto),
+  };
+}
+
+function createPlayersDto(
+  appearances: MatchPlayer[],
+  match: Match,
+): MatchPlayersDto {
+  return {
+    homeTeam: createTeamPlayers(appearances, match.homeTeam),
+    awayTeam: createTeamPlayers(appearances, match.awayTeam),
+  };
+}
+
+function toGoalDto(goal: Goal) {
+  return {
+    team: { slug: goal.team.slug, name: goal.team.name },
+    player: { slug: goal.player.slug, name: goal.player.name },
+    minute: goal.minute,
+    addedTime: goal.added_time,
+    penalty: goal.penalty,
+    ownGoal: goal.own_goal,
+  };
+}
+
+function createGoalsDto(goals: Goal[], match: Match): MatchGoalsDto {
+  return {
+    homeTeam: goals
+      .filter((goal) => goal.team.id === match.homeTeam.id)
+      .map(toGoalDto),
+    awayTeam: goals
+      .filter((goal) => goal.team.id === match.awayTeam.id)
+      .map(toGoalDto),
   };
 }
 
@@ -93,19 +127,24 @@ export class MatchesService {
       .leftJoinAndSelect('match.stadium', 'stadium')
       .select([
         'match.id',
+        'match.slug',
         'match.round',
         'match.match_date',
         'match.kickoff_time',
         'match.home_score',
         'match.away_score',
         'tournament.id',
+        'tournament.slug',
         'tournament.name',
         'tournament.year',
         'homeTeam.id',
+        'homeTeam.slug',
         'homeTeam.name',
         'awayTeam.id',
+        'awayTeam.slug',
         'awayTeam.name',
         'stadium.id',
+        'stadium.slug',
         'stadium.ground',
       ]);
   }
@@ -117,7 +156,7 @@ export class MatchesService {
     const [matches, totalItems] = await query
       .orderBy('match.match_date', 'ASC')
       .addOrderBy('match.kickoff_time', 'ASC', 'NULLS FIRST')
-      .addOrderBy('match.id', 'ASC')
+      .addOrderBy('match.slug', 'ASC')
       .skip((pagination.page - 1) * pagination.limit)
       .take(pagination.limit)
       .getManyAndCount();
@@ -133,12 +172,12 @@ export class MatchesService {
     tournamentId: string,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    const query = this.createSummaryQuery().where(
-      'match.tournament_id = :tournamentId',
-      { tournamentId },
+    return await this.paginateSummaryQuery(
+      this.createSummaryQuery().where('match.tournament_id = :tournamentId', {
+        tournamentId,
+      }),
+      pagination,
     );
-
-    return await this.paginateSummaryQuery(query, pagination);
   }
 
   async findByTeam(
@@ -171,14 +210,15 @@ export class MatchesService {
     stadiumId: string,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    const query = this.createSummaryQuery().where(
-      'match.stadium_id = :stadiumId',
-      { stadiumId },
+    return await this.paginateSummaryQuery(
+      this.createSummaryQuery().where('match.stadium_id = :stadiumId', {
+        stadiumId,
+      }),
+      pagination,
     );
-
-    return await this.paginateSummaryQuery(query, pagination);
   }
-  async findOne(id: string): Promise<MatchDetailDto> {
+
+  async findOne(slug: string): Promise<MatchDetailDto> {
     const match = await this.createSummaryQuery()
       .addSelect([
         'match.home_score_et',
@@ -186,7 +226,7 @@ export class MatchesService {
         'match.home_score_penalties',
         'match.away_score_penalties',
       ])
-      .where('match.id = :id', { id })
+      .where('match.slug = :slug', { slug })
       .getOne();
 
     if (!match) {
@@ -194,21 +234,11 @@ export class MatchesService {
     }
 
     const [appearances, goals, substitutions, bookings] = await Promise.all([
-      this.findAppearances(id),
-      this.findGoals(id),
-      this.findSubstitutions(id),
-      this.findBookings(id),
+      this.findAppearancesByMatchId(match.id),
+      this.findGoalsByMatchId(match.id),
+      this.findSubstitutionsByMatchId(match.id),
+      this.findBookingsByMatchId(match.id),
     ]);
-
-    // Goal ownership uses the credited team, so own goals appear for the opponent.
-    const toGoalDto = (goal: Goal) => ({
-      team: { id: goal.team.id, name: goal.team.name },
-      player: { id: goal.player.id, name: goal.player.name },
-      minute: goal.minute,
-      addedTime: goal.added_time,
-      penalty: goal.penalty,
-      ownGoal: goal.own_goal,
-    });
 
     return {
       ...toMatchSummaryDto(match),
@@ -225,37 +255,27 @@ export class MatchesService {
               home: match.home_score_penalties,
               away: match.away_score_penalties,
             },
-      players: {
-        homeTeam: createTeamPlayers(appearances, match.homeTeam),
-        awayTeam: createTeamPlayers(appearances, match.awayTeam),
-      },
-      goals: {
-        homeTeam: goals
-          .filter((goal) => goal.team.id === match.homeTeam.id)
-          .map(toGoalDto),
-        awayTeam: goals
-          .filter((goal) => goal.team.id === match.awayTeam.id)
-          .map(toGoalDto),
-      },
+      players: createPlayersDto(appearances, match),
+      goals: createGoalsDto(goals, match),
       substitutions: substitutions.map((substitution): SubstitutionDto => ({
         team: {
-          id: substitution.team.id,
+          slug: substitution.team.slug,
           name: substitution.team.name,
         },
         playerOut: {
-          id: substitution.playerOut.id,
+          slug: substitution.playerOut.slug,
           name: substitution.playerOut.name,
         },
         playerIn: {
-          id: substitution.playerIn.id,
+          slug: substitution.playerIn.slug,
           name: substitution.playerIn.name,
         },
         minute: substitution.minute,
         addedTime: substitution.added_time,
       })),
       bookings: bookings.map((booking): BookingDto => ({
-        team: { id: booking.team.id, name: booking.team.name },
-        player: { id: booking.player.id, name: booking.player.name },
+        team: { slug: booking.team.slug, name: booking.team.name },
+        player: { slug: booking.player.slug, name: booking.player.name },
         cardType: booking.card_type,
         minute: booking.minute,
         addedTime: booking.added_time,
@@ -263,13 +283,41 @@ export class MatchesService {
     };
   }
 
-  private async findAppearances(matchId: string): Promise<MatchPlayer[]> {
+  async findPlayers(slug: string): Promise<MatchPlayersDto> {
+    const match = await this.findMatchContext(slug);
+    const appearances = await this.findAppearancesByMatchId(match.id);
+
+    return createPlayersDto(appearances, match);
+  }
+
+  async findGoals(slug: string): Promise<MatchGoalsDto> {
+    const match = await this.findMatchContext(slug);
+    const goals = await this.findGoalsByMatchId(match.id);
+
+    return createGoalsDto(goals, match);
+  }
+
+  private async findMatchContext(slug: string): Promise<Match> {
+    const match = await this.createSummaryQuery()
+      .where('match.slug = :slug', { slug })
+      .getOne();
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
+    }
+
+    return match;
+  }
+
+  private async findAppearancesByMatchId(
+    matchId: string,
+  ): Promise<MatchPlayer[]> {
     return await this.matchPlayersRepository
       .createQueryBuilder('appearance')
       .innerJoinAndSelect('appearance.player', 'player')
       .innerJoinAndSelect('appearance.team', 'team')
       .where('appearance.match_id = :matchId', { matchId })
-      .orderBy('team.id', 'ASC')
+      .orderBy('team.slug', 'ASC')
       .addOrderBy('appearance.starter', 'DESC')
       .addOrderBy('appearance.shirt_number', 'ASC', 'NULLS LAST')
       .addOrderBy('player.name', 'ASC')
@@ -277,7 +325,7 @@ export class MatchesService {
       .getMany();
   }
 
-  private async findGoals(matchId: string): Promise<Goal[]> {
+  private async findGoalsByMatchId(matchId: string): Promise<Goal[]> {
     return await this.goalsRepository
       .createQueryBuilder('goal')
       .innerJoinAndSelect('goal.player', 'player')
@@ -289,7 +337,9 @@ export class MatchesService {
       .getMany();
   }
 
-  private async findSubstitutions(matchId: string): Promise<Substitution[]> {
+  private async findSubstitutionsByMatchId(
+    matchId: string,
+  ): Promise<Substitution[]> {
     return await this.substitutionsRepository
       .createQueryBuilder('substitution')
       .innerJoinAndSelect('substitution.team', 'team')
@@ -302,7 +352,7 @@ export class MatchesService {
       .getMany();
   }
 
-  private async findBookings(matchId: string): Promise<Booking[]> {
+  private async findBookingsByMatchId(matchId: string): Promise<Booking[]> {
     return await this.bookingsRepository
       .createQueryBuilder('booking')
       .innerJoinAndSelect('booking.team', 'team')

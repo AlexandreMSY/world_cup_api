@@ -28,6 +28,9 @@ export class Match {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', unique: true })
+  slug: string;
+
   @ManyToOne(() => Tournament, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'tournament_id' })
   tournament: Tournament;

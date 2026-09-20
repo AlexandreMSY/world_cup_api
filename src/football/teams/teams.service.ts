@@ -13,7 +13,7 @@ import { Team } from './entities/team.entity.js';
 
 export function toTeamDto(team: Team): TeamDto {
   return {
-    id: team.id,
+    slug: team.slug,
     name: team.name,
     code: team.code,
   };
@@ -31,7 +31,7 @@ export class TeamsService {
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
     const [teams, totalItems] = await this.teamsRepository.findAndCount({
-      order: { name: 'ASC', id: 'ASC' },
+      order: { name: 'ASC', slug: 'ASC' },
       skip: (pagination.page - 1) * pagination.limit,
       take: pagination.limit,
     });
@@ -43,22 +43,26 @@ export class TeamsService {
     );
   }
 
-  async findOne(id: string): Promise<TeamDto> {
-    const team = await this.teamsRepository.findOneBy({ id });
+  async findOne(slug: string): Promise<TeamDto> {
+    return toTeamDto(await this.findEntity(slug));
+  }
+
+  async findMatches(
+    slug: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    const team = await this.findEntity(slug);
+
+    return await this.matchesService.findByTeam(team.id, pagination);
+  }
+
+  private async findEntity(slug: string): Promise<Team> {
+    const team = await this.teamsRepository.findOneBy({ slug });
 
     if (!team) {
       throw new NotFoundException('Team not found');
     }
 
-    return toTeamDto(team);
-  }
-
-  async findMatches(
-    id: string,
-    pagination: PaginationQueryDto,
-  ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    await this.findOne(id);
-
-    return await this.matchesService.findByTeam(id, pagination);
+    return team;
   }
 }

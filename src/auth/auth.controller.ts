@@ -19,7 +19,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Register a user' })
+  @ApiOperation({ summary: 'Register an user' })
   @ApiCreatedResponse({ type: CreatedUserDto })
   @ApiBadRequestResponse({ description: 'The request body is invalid.' })
   async register(
@@ -29,7 +29,9 @@ export class AuthController {
   }
 
   @Post('login')
-  @ApiOperation({ summary: 'Log in and receive an access token' })
+  @ApiOperation({
+    summary: 'Log in and receive an access token to generate the API key',
+  })
   @ApiOkResponse({ type: LoginResponseDto })
   @ApiBadRequestResponse({ description: 'The request body is invalid.' })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password.' })

@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import argon2 from 'argon2';
@@ -67,12 +71,16 @@ describe('football route contracts (e2e)', () => {
     expect(teamsService.findAll).not.toHaveBeenCalled();
   });
 
-  it('returns 400 for a malformed resource UUID', async () => {
+  it('passes any public identifier to the service and returns 404 when absent', async () => {
+    teamsService.findOne.mockRejectedValue(
+      new NotFoundException('Team not found'),
+    );
+
     await request(app.getHttpServer())
       .get('/teams/not-a-uuid')
       .set('X-API-Key', 'test-api-key')
-      .expect(400);
-    expect(teamsService.findOne).not.toHaveBeenCalled();
+      .expect(404);
+    expect(teamsService.findOne).toHaveBeenCalledWith('not-a-uuid');
   });
 
   it('returns 400 for invalid pagination', async () => {

@@ -15,7 +15,7 @@ import { Tournament } from './entities/tournament.entity.js';
 
 function toTournamentDto(tournament: Tournament): TournamentDto {
   return {
-    id: tournament.id,
+    slug: tournament.slug,
     name: tournament.name,
     year: tournament.year,
     host: tournament.host,
@@ -40,14 +40,14 @@ export class TournamentsService {
     const [tournaments, totalItems] =
       await this.tournamentsRepository.findAndCount({
         select: {
-          id: true,
+          slug: true,
           name: true,
           year: true,
           host: true,
           start_date: true,
           end_date: true,
         },
-        order: { year: 'ASC', id: 'ASC' },
+        order: { year: 'ASC', slug: 'ASC' },
         skip: (pagination.page - 1) * pagination.limit,
         take: pagination.limit,
       });
@@ -59,35 +59,30 @@ export class TournamentsService {
     );
   }
 
-  async findOne(id: string): Promise<TournamentDto> {
-    const tournament = await this.tournamentsRepository.findOneBy({ id });
-
-    if (!tournament) {
-      throw new NotFoundException('Tournament not found');
-    }
-
-    return toTournamentDto(tournament);
+  async findOne(slug: string): Promise<TournamentDto> {
+    return toTournamentDto(await this.findEntity(slug));
   }
 
   async findTeams(
-    id: string,
+    slug: string,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
-    await this.findOne(id);
-
+    const tournament = await this.findEntity(slug);
     const [tournamentTeams, totalItems] = await this.tournamentTeamsRepository
       .createQueryBuilder('tournamentTeam')
       .innerJoinAndSelect('tournamentTeam.team', 'team')
-      .where('tournamentTeam.tournament_id = :id', { id })
+      .where('tournamentTeam.tournament_id = :tournamentId', {
+        tournamentId: tournament.id,
+      })
       .orderBy('team.name', 'ASC')
-      .addOrderBy('team.id', 'ASC')
+      .addOrderBy('team.slug', 'ASC')
       .skip((pagination.page - 1) * pagination.limit)
       .take(pagination.limit)
       .getManyAndCount();
 
     return createPaginatedResponse(
       tournamentTeams.map(({ team }) => ({
-        id: team.id,
+        slug: team.slug,
         name: team.name,
         code: team.code,
       })),
@@ -97,11 +92,24 @@ export class TournamentsService {
   }
 
   async findMatches(
-    id: string,
+    slug: string,
     pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    await this.findOne(id);
+    const tournament = await this.findEntity(slug);
 
-    return await this.matchesService.findByTournament(id, pagination);
+    return await this.matchesService.findByTournament(
+      tournament.id,
+      pagination,
+    );
+  }
+
+  private async findEntity(slug: string): Promise<Tournament> {
+    const tournament = await this.tournamentsRepository.findOneBy({ slug });
+
+    if (!tournament) {
+      throw new NotFoundException('Tournament not found');
+    }
+
+    return tournament;
   }
 }

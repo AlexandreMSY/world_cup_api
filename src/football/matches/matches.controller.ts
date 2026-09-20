@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -17,7 +10,11 @@ import {
 import { ApiKeyAuthGuard } from '../../api-keys/guards/api-key-auth.guard.js';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
 import { PaginatedResponse } from '../../common/pagination/pagination.js';
-import { MatchDetailDto } from './dto/match-detail.dto.js';
+import {
+  MatchGoalsDto,
+  MatchDetailDto,
+  MatchPlayersDto,
+} from './dto/match-detail.dto.js';
 import { MatchSummaryDto } from './dto/match-summary.dto.js';
 import { MatchesService } from './matches.service.js';
 
@@ -40,13 +37,27 @@ export class MatchesController {
     return await this.matchesService.findAll(pagination);
   }
 
-  @Get(':id')
+  @Get(':slug/players')
+  @ApiOperation({ summary: 'Get grouped player appearances for a match' })
+  @ApiOkResponse({ type: MatchPlayersDto })
+  @ApiNotFoundResponse({ description: 'Match not found.' })
+  async findPlayers(@Param('slug') slug: string): Promise<MatchPlayersDto> {
+    return await this.matchesService.findPlayers(slug);
+  }
+
+  @Get(':slug/goals')
+  @ApiOperation({ summary: 'Get grouped goals for a match' })
+  @ApiOkResponse({ type: MatchGoalsDto })
+  @ApiNotFoundResponse({ description: 'Match not found.' })
+  async findGoals(@Param('slug') slug: string): Promise<MatchGoalsDto> {
+    return await this.matchesService.findGoals(slug);
+  }
+
+  @Get(':slug')
   @ApiOperation({ summary: 'Get a football match with lineups and events' })
   @ApiOkResponse({ type: MatchDetailDto })
   @ApiNotFoundResponse({ description: 'Match not found.' })
-  async findOne(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<MatchDetailDto> {
-    return await this.matchesService.findOne(id);
+  async findOne(@Param('slug') slug: string): Promise<MatchDetailDto> {
+    return await this.matchesService.findOne(slug);
   }
 }

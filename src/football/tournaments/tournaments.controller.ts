@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -41,35 +34,33 @@ export class TournamentsController {
     return await this.tournamentsService.findAll(pagination);
   }
 
-  @Get(':id')
+  @Get(':slug')
   @ApiOperation({ summary: 'Get a World Cup tournament' })
   @ApiOkResponse({ type: TournamentDto })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
-  async findOne(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ): Promise<TournamentDto> {
-    return await this.tournamentsService.findOne(id);
+  async findOne(@Param('slug') slug: string): Promise<TournamentDto> {
+    return await this.tournamentsService.findOne(slug);
   }
 
-  @Get(':id/teams')
+  @Get(':slug/teams')
   @ApiOperation({ summary: 'List teams in a World Cup tournament' })
   @ApiOkResponse({ type: TeamDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
   async findTeams(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('slug') slug: string,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<TeamDto>> {
-    return await this.tournamentsService.findTeams(id, pagination);
+    return await this.tournamentsService.findTeams(slug, pagination);
   }
 
-  @Get(':id/matches')
+  @Get(':slug/matches')
   @ApiOperation({ summary: 'List matches in a World Cup tournament' })
   @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
   @ApiNotFoundResponse({ description: 'Tournament not found.' })
   async findMatches(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('slug') slug: string,
     @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<MatchSummaryDto>> {
-    return await this.tournamentsService.findMatches(id, pagination);
+    return await this.tournamentsService.findMatches(slug, pagination);
   }
 }

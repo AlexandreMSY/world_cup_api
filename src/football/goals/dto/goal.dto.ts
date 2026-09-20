@@ -2,8 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { BasicTeamDto } from '../../matches/dto/match-summary.dto.js';
 
 export class BasicPlayerDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   name: string;
@@ -30,8 +30,8 @@ export class GoalDto {
 }
 
 export class BasicGoalMatchDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   round: string;

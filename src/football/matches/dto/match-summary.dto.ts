@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BasicTournamentDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   name: string;
@@ -12,16 +12,16 @@ export class BasicTournamentDto {
 }
 
 export class BasicTeamDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   name: string;
 }
 
 export class BasicStadiumDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   ground: string;
@@ -36,8 +36,8 @@ export class MatchScoreDto {
 }
 
 export class MatchSummaryDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty({ type: BasicTournamentDto })
   tournament: BasicTournamentDto;

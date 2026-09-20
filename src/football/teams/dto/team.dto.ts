@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TeamDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   name: string;

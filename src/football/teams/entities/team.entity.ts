@@ -6,6 +6,9 @@ export class Team {
   id: string;
 
   @Column({ type: 'varchar', unique: true })
+  slug: string;
+
+  @Column({ type: 'varchar', unique: true })
   name: string;
 
   @Column({ type: 'varchar', nullable: true, unique: true })

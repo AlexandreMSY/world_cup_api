@@ -2,6 +2,13 @@ import 'dotenv/config';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
+import {
+  makeUniqueSlug,
+  matchSlug,
+  playerSlug,
+  slugify,
+  tournamentSlug,
+} from '../src/common/slugs/slug-utils.js';
 import { tournamentSources } from './tournament-sources.mjs';
 
 function getRequiredEnvironmentVariable(name) {
@@ -428,17 +435,62 @@ async function queryOne(client, text, values) {
   return result.rows[0];
 }
 
-async function upsertTournament(client, source, parsedSource) {
+async function createSlugCache(client) {
+  const slugCache = {};
+
+  for (const table of [
+    'tournaments',
+    'teams',
+    'players',
+    'stadiums',
+    'matches',
+  ]) {
+    const result = await client.query(`SELECT slug FROM ${table}`);
+    slugCache[table] = new Set(
+      result.rows
+        .map((row) => row.slug)
+        .filter((slug) => typeof slug === 'string'),
+    );
+  }
+
+  return slugCache;
+}
+
+async function upsertTournament(client, source, parsedSource, slugCache) {
+  const existingTournament = await client.query(
+    'SELECT id, slug FROM tournaments WHERE name = $1 AND year = $2',
+    [source.name, source.year],
+  );
+
+  if (existingTournament.rows[0]) {
+    return await queryOne(
+      client,
+      `
+        UPDATE tournaments
+        SET host = $1, start_date = $2, end_date = $3
+        WHERE id = $4
+        RETURNING id, slug
+      `,
+      [
+        source.host,
+        parsedSource.start_date,
+        parsedSource.end_date,
+        existingTournament.rows[0].id,
+      ],
+    );
+  }
+
+  const slug = makeUniqueSlug(
+    tournamentSlug(source.name, source.year),
+    slugCache.tournaments,
+  );
+
   return await queryOne(
     client,
     `
-      INSERT INTO tournaments (name, year, host, start_date, end_date)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (name, year) DO UPDATE SET
-        host = EXCLUDED.host,
-        start_date = EXCLUDED.start_date,
-        end_date = EXCLUDED.end_date
-      RETURNING id
+      INSERT INTO tournaments (name, year, host, start_date, end_date, slug)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, slug
     `,
     [
       source.name,
@@ -446,47 +498,56 @@ async function upsertTournament(client, source, parsedSource) {
       source.host,
       parsedSource.start_date,
       parsedSource.end_date,
+      slug,
     ],
   );
 }
 
-async function upsertTeam(client, name) {
-  return await queryOne(
-    client,
-    `
-      INSERT INTO teams (name, code)
-      VALUES ($1, NULL)
-      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-      RETURNING id, name
-    `,
+async function upsertTeam(client, name, slugCache) {
+  const existingTeam = await client.query(
+    'SELECT id, name, slug FROM teams WHERE name = $1',
     [name],
   );
-}
 
-async function upsertStadium(client, ground) {
+  if (existingTeam.rows[0]) {
+    return existingTeam.rows[0];
+  }
+
   return await queryOne(
     client,
-    `
-      INSERT INTO stadiums (ground)
-      VALUES ($1)
-      ON CONFLICT (ground) DO UPDATE SET ground = EXCLUDED.ground
-      RETURNING id
-    `,
-    [ground],
+    'INSERT INTO teams (name, code, slug) VALUES ($1, NULL, $2) RETURNING id, name, slug',
+    [name, makeUniqueSlug(slugify(name), slugCache.teams)],
   );
 }
 
-async function findOrCreatePlayer(client, teamId, name) {
+async function upsertStadium(client, ground, slugCache) {
+  const existingStadium = await client.query(
+    'SELECT id, slug FROM stadiums WHERE ground = $1',
+    [ground],
+  );
+
+  if (existingStadium.rows[0]) {
+    return existingStadium.rows[0];
+  }
+
+  return await queryOne(
+    client,
+    'INSERT INTO stadiums (ground, slug) VALUES ($1, $2) RETURNING id, slug',
+    [ground, makeUniqueSlug(slugify(ground), slugCache.stadiums)],
+  );
+}
+
+async function findOrCreatePlayer(client, team, name, slugCache) {
   const lookupName = playerLookupKey(name);
   const existingPlayer = await client.query(
     `
-      SELECT id, name
+      SELECT id, name, slug
       FROM players
       WHERE team_id = $1
         AND LOWER(REGEXP_REPLACE(BTRIM(name), '\\s+', ' ', 'g')) = $2
       LIMIT 1
     `,
-    [teamId, lookupName],
+    [team.id, lookupName],
   );
 
   if (existingPlayer.rows[0]) {
@@ -495,52 +556,96 @@ async function findOrCreatePlayer(client, teamId, name) {
 
   return await queryOne(
     client,
-    'INSERT INTO players (team_id, name) VALUES ($1, $2) RETURNING id, name',
-    [teamId, normalizePlayerName(name)],
+    'INSERT INTO players (team_id, name, slug) VALUES ($1, $2, $3) RETURNING id, name, slug',
+    [
+      team.id,
+      normalizePlayerName(name),
+      playerSlug(name, team.slug, slugCache.players),
+    ],
   );
 }
 
-async function upsertMatch(client, tournamentId, stadiumId, teamIds, match) {
+async function upsertMatch(
+  client,
+  tournament,
+  stadiumId,
+  teams,
+  match,
+  slugCache,
+) {
+  const existingMatch = await client.query(
+    `
+      SELECT id, slug
+      FROM matches
+      WHERE tournament_id = $1
+        AND match_date = $2
+        AND home_team_id = $3
+        AND away_team_id = $4
+    `,
+    [tournament.id, match.match_date, teams[0].id, teams[1].id],
+  );
+  const values = [
+    stadiumId,
+    match.round,
+    match.kickoff_time,
+    match.home_score,
+    match.away_score,
+    match.home_score_et,
+    match.away_score_et,
+    match.home_score_penalties,
+    match.away_score_penalties,
+  ];
+
+  if (existingMatch.rows[0]) {
+    return await queryOne(
+      client,
+      `
+        UPDATE matches
+        SET stadium_id = $1, round = $2, kickoff_time = $3, home_score = $4,
+          away_score = $5, home_score_et = $6, away_score_et = $7,
+          home_score_penalties = $8, away_score_penalties = $9
+        WHERE id = $10
+        RETURNING id, slug
+      `,
+      [...values, existingMatch.rows[0].id],
+    );
+  }
+
+  const slug = matchSlug(
+    {
+      year: tournament.year,
+      homeTeamSlug: teams[0].slug,
+      awayTeamSlug: teams[1].slug,
+      round: match.round,
+      matchDate: match.match_date,
+      kickoffTime: match.kickoff_time,
+    },
+    slugCache.matches,
+  );
+
   return await queryOne(
     client,
     `
       INSERT INTO matches (
         tournament_id, stadium_id, home_team_id, away_team_id, round,
         match_date, kickoff_time, home_score, away_score, home_score_et,
-        away_score_et, home_score_penalties, away_score_penalties
+        away_score_et, home_score_penalties, away_score_penalties, slug
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      ON CONFLICT (tournament_id, match_date, home_team_id, away_team_id)
-      DO UPDATE SET
-        stadium_id = EXCLUDED.stadium_id,
-        round = EXCLUDED.round,
-        kickoff_time = EXCLUDED.kickoff_time,
-        home_score = EXCLUDED.home_score,
-        away_score = EXCLUDED.away_score,
-        home_score_et = EXCLUDED.home_score_et,
-        away_score_et = EXCLUDED.away_score_et,
-        home_score_penalties = EXCLUDED.home_score_penalties,
-        away_score_penalties = EXCLUDED.away_score_penalties
-      RETURNING id
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id, slug
     `,
     [
-      tournamentId,
+      tournament.id,
       stadiumId,
-      teamIds[0],
-      teamIds[1],
+      teams[0].id,
+      teams[1].id,
       match.round,
       match.match_date,
-      match.kickoff_time,
-      match.home_score,
-      match.away_score,
-      match.home_score_et,
-      match.away_score_et,
-      match.home_score_penalties,
-      match.away_score_penalties,
+      ...values.slice(2),
+      slug,
     ],
   );
 }
-
 async function upsertTournamentTeam(client, tournamentId, teamId, groupName) {
   await client.query(
     `
@@ -565,11 +670,14 @@ async function clearMatchDetails(client, matchId) {
 }
 
 async function importTournament(client, tournamentSource, parsedSource) {
+  const slugCache = await createSlugCache(client);
   const tournament = await upsertTournament(
     client,
     tournamentSource,
     parsedSource,
+    slugCache,
   );
+  tournament.year = tournamentSource.year;
   const teamCache = new Map();
   const stadiumCache = new Map();
   const playerCache = new Map();
@@ -585,7 +693,7 @@ async function importTournament(client, tournamentSource, parsedSource) {
 
   const ensureTeam = async (name) => {
     if (!teamCache.has(name)) {
-      const team = await upsertTeam(client, name);
+      const team = await upsertTeam(client, name, slugCache);
       teamCache.set(name, team);
       counts.teams += 1;
     }
@@ -593,11 +701,11 @@ async function importTournament(client, tournamentSource, parsedSource) {
     return teamCache.get(name);
   };
 
-  const ensurePlayer = async (teamId, name) => {
-    const key = `${teamId}:${playerLookupKey(name)}`;
+  const ensurePlayer = async (team, name) => {
+    const key = `${team.id}:${playerLookupKey(name)}`;
 
     if (!playerCache.has(key)) {
-      const player = await findOrCreatePlayer(client, teamId, name);
+      const player = await findOrCreatePlayer(client, team, name, slugCache);
       playerCache.set(key, player);
 
       if (!importedPlayerIds.has(player.id)) {
@@ -609,7 +717,23 @@ async function importTournament(client, tournamentSource, parsedSource) {
     return playerCache.get(key);
   };
 
-  for (const match of parsedSource.matches) {
+  const matches = [...parsedSource.matches].sort((firstMatch, secondMatch) => {
+    return (
+      firstMatch.match_date.localeCompare(secondMatch.match_date) ||
+      (firstMatch.kickoff_time ?? '').localeCompare(
+        secondMatch.kickoff_time ?? '',
+      ) ||
+      slugify(firstMatch.home_team).localeCompare(
+        slugify(secondMatch.home_team),
+      ) ||
+      slugify(firstMatch.away_team).localeCompare(
+        slugify(secondMatch.away_team),
+      ) ||
+      firstMatch.round.localeCompare(secondMatch.round)
+    );
+  });
+
+  for (const match of matches) {
     const teams = [
       await ensureTeam(match.home_team),
       await ensureTeam(match.away_team),
@@ -621,7 +745,7 @@ async function importTournament(client, tournamentSource, parsedSource) {
       if (!stadiumCache.has(match.ground)) {
         stadiumCache.set(
           match.ground,
-          await upsertStadium(client, match.ground),
+          await upsertStadium(client, match.ground, slugCache),
         );
       }
 
@@ -630,10 +754,11 @@ async function importTournament(client, tournamentSource, parsedSource) {
 
     const databaseMatch = await upsertMatch(
       client,
-      tournament.id,
+      tournament,
       stadiumId,
-      teamIds,
+      teams,
       match,
+      slugCache,
     );
     const groupName = getGroupName(match.round);
 
@@ -646,7 +771,10 @@ async function importTournament(client, tournamentSource, parsedSource) {
       const lineup = match.lineup[sideIndex];
 
       for (const selectedPlayer of lineup.players) {
-        const player = await ensurePlayer(teamId, selectedPlayer.name);
+        const player = await ensurePlayer(
+          teams[sideIndex],
+          selectedPlayer.name,
+        );
 
         await client.query(
           `
@@ -671,9 +799,10 @@ async function importTournament(client, tournamentSource, parsedSource) {
 
       for (const goal of match.goals[sideIndex]) {
         // Goals are grouped by credited side, but an own-goal scorer belongs to the opponent.
-        const playerTeamId =
-          teamIds[resolveGoalPlayerTeam(sideIndex, goal.own_goal)];
-        const player = await ensurePlayer(playerTeamId, goal.name);
+        const player = await ensurePlayer(
+          teams[resolveGoalPlayerTeam(sideIndex, goal.own_goal)],
+          goal.name,
+        );
 
         await client.query(
           `
@@ -695,7 +824,7 @@ async function importTournament(client, tournamentSource, parsedSource) {
       }
 
       for (const booking of match.bookings[sideIndex]) {
-        const player = await ensurePlayer(teamId, booking.name);
+        const player = await ensurePlayer(teams[sideIndex], booking.name);
 
         await client.query(
           `
@@ -716,8 +845,14 @@ async function importTournament(client, tournamentSource, parsedSource) {
       }
 
       for (const substitution of lineup.substitutions) {
-        const playerOut = await ensurePlayer(teamId, substitution.player_out);
-        const playerIn = await ensurePlayer(teamId, substitution.player_in);
+        const playerOut = await ensurePlayer(
+          teams[sideIndex],
+          substitution.player_out,
+        );
+        const playerIn = await ensurePlayer(
+          teams[sideIndex],
+          substitution.player_in,
+        );
 
         await client.query(
           `

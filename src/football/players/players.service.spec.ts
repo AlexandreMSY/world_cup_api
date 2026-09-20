@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Player } from './entities/player.entity.js';
@@ -5,11 +6,13 @@ import { PlayersService } from './players.service.js';
 
 const queryBuilder = {
   innerJoinAndSelect: vi.fn(),
+  where: vi.fn(),
   orderBy: vi.fn(),
   addOrderBy: vi.fn(),
   skip: vi.fn(),
   take: vi.fn(),
   getManyAndCount: vi.fn(),
+  getOne: vi.fn(),
 };
 
 const playersRepository = {
@@ -23,6 +26,7 @@ describe('PlayersService', () => {
     vi.clearAllMocks();
     for (const method of [
       'innerJoinAndSelect',
+      'where',
       'orderBy',
       'addOrderBy',
       'skip',
@@ -70,5 +74,27 @@ describe('PlayersService', () => {
     expect(queryBuilder.orderBy).toHaveBeenCalledWith('player.name', 'ASC');
     expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('player.id', 'ASC');
     expect(queryBuilder.skip).toHaveBeenCalledWith(10);
+  });
+
+  it('returns one player with its team', async () => {
+    queryBuilder.getOne.mockResolvedValue({
+      id: 'player-id',
+      name: 'Ronaldo',
+      team: { id: 'team-id', name: 'Brazil' },
+    });
+
+    await expect(service.findOne('player-id')).resolves.toEqual({
+      id: 'player-id',
+      name: 'Ronaldo',
+      team: { id: 'team-id', name: 'Brazil' },
+    });
+  });
+
+  it('rejects a missing player', async () => {
+    queryBuilder.getOne.mockResolvedValue(null);
+
+    await expect(service.findOne('missing-id')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

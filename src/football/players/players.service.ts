@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
@@ -41,5 +41,19 @@ export class PlayersService {
       totalItems,
       pagination,
     );
+  }
+
+  async findOne(id: string): Promise<PlayerDto> {
+    const player = await this.playersRepository
+      .createQueryBuilder('player')
+      .innerJoinAndSelect('player.team', 'team')
+      .where('player.id = :id', { id })
+      .getOne();
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    return toPlayerDto(player);
   }
 }

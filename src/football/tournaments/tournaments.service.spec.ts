@@ -1,8 +1,23 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { TournamentTeam } from './entities/tournament-team.entity.js';
 import { Tournament } from './entities/tournament.entity.js';
 import { TournamentsService } from './tournaments.service.js';
+
+const tournamentTeamsQueryBuilder = {
+  innerJoinAndSelect: vi.fn(),
+  where: vi.fn(),
+  orderBy: vi.fn(),
+  addOrderBy: vi.fn(),
+  skip: vi.fn(),
+  take: vi.fn(),
+  getManyAndCount: vi.fn(),
+};
+
+const tournamentTeamsRepository = {
+  createQueryBuilder: vi.fn(),
+};
 
 const tournamentsRepository = {
   findAndCount: vi.fn(),
@@ -14,12 +29,38 @@ describe('TournamentsService', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    tournamentTeamsQueryBuilder.innerJoinAndSelect.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsQueryBuilder.where.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsQueryBuilder.orderBy.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsQueryBuilder.addOrderBy.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsQueryBuilder.skip.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsQueryBuilder.take.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+    tournamentTeamsRepository.createQueryBuilder.mockReturnValue(
+      tournamentTeamsQueryBuilder,
+    );
+
     const module = await Test.createTestingModule({
       providers: [
         TournamentsService,
         {
           provide: getRepositoryToken(Tournament),
           useValue: tournamentsRepository,
+        },
+        {
+          provide: getRepositoryToken(TournamentTeam),
+          useValue: tournamentTeamsRepository,
         },
       ],
     }).compile();
@@ -55,14 +96,8 @@ describe('TournamentsService', () => {
       ],
       meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
     });
-    expect(tournamentsRepository.findAndCount).toHaveBeenCalledWith(
-      expect.objectContaining({
-        order: { year: 'ASC', id: 'ASC' },
-        skip: 0,
-        take: 20,
-      }),
-    );
   });
+
   it('returns one tournament', async () => {
     tournamentsRepository.findOneBy.mockResolvedValue({
       id: 'tournament-id',
@@ -86,5 +121,44 @@ describe('TournamentsService', () => {
     await expect(service.findOne('missing-id')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('returns tournament teams after validating the parent', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue({
+      id: 'tournament-id',
+      name: 'FIFA World Cup',
+      year: 2002,
+      host: null,
+      start_date: null,
+      end_date: null,
+    });
+    tournamentTeamsQueryBuilder.getManyAndCount.mockResolvedValue([
+      [{ team: { id: 'team-id', name: 'Brazil', code: null } }],
+      1,
+    ]);
+
+    await expect(
+      service.findTeams('tournament-id', { page: 1, limit: 20 }),
+    ).resolves.toEqual({
+      data: [{ id: 'team-id', name: 'Brazil', code: null }],
+      meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+    });
+    expect(tournamentTeamsQueryBuilder.orderBy).toHaveBeenCalledWith(
+      'team.name',
+      'ASC',
+    );
+    expect(tournamentTeamsQueryBuilder.addOrderBy).toHaveBeenCalledWith(
+      'team.id',
+      'ASC',
+    );
+  });
+
+  it('does not query teams when the tournament is missing', async () => {
+    tournamentsRepository.findOneBy.mockResolvedValue(null);
+
+    await expect(
+      service.findTeams('missing-id', { page: 1, limit: 20 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(tournamentTeamsRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 });

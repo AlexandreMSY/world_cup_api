@@ -17,6 +17,7 @@ import {
 import { ApiKeyAuthGuard } from '../../api-keys/guards/api-key-auth.guard.js';
 import { PaginationQueryDto } from '../../common/pagination/dto/pagination-query.dto.js';
 import { PaginatedResponse } from '../../common/pagination/pagination.js';
+import { MatchSummaryDto } from '../matches/dto/match-summary.dto.js';
 import { StadiumDto } from './dto/stadium.dto.js';
 import { StadiumsService } from './stadiums.service.js';
 
@@ -47,5 +48,16 @@ export class StadiumsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ): Promise<StadiumDto> {
     return await this.stadiumsService.findOne(id);
+  }
+
+  @Get(':id/matches')
+  @ApiOperation({ summary: 'List matches played at a football stadium' })
+  @ApiOkResponse({ type: MatchSummaryDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Stadium not found.' })
+  async findMatches(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    return await this.stadiumsService.findMatches(id, pagination);
   }
 }

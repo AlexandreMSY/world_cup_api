@@ -256,4 +256,15 @@ describe('MatchesService', () => {
     expect(matchPlayersRepository.createQueryBuilder).not.toHaveBeenCalled();
     expect(goalsRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
+
+  it('filters stadium matches before deterministic pagination', async () => {
+    matchQuery.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findByStadium('stadium-id', { page: 1, limit: 20 });
+
+    expect(matchQuery.where).toHaveBeenCalledWith(
+      'match.stadium_id = :stadiumId',
+      { stadiumId: 'stadium-id' },
+    );
+  });
 });

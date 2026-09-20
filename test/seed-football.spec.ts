@@ -34,8 +34,9 @@ describe('football source parsers', () => {
         { type: 'Y', name: 'Player One' },
         { type: 'R', name: 'Player One' },
         { type: 'R', name: 'Player Two' },
+        { type: 'Y/R', name: 'Player Three' },
       ]),
-    ).toEqual(['yellow', 'second_yellow', 'red']);
+    ).toEqual(['yellow', 'second_yellow', 'red', 'second_yellow']);
   });
 
   it('resolves own-goal scorers against the opposing team', () => {

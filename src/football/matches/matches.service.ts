@@ -148,6 +148,17 @@ export class MatchesService {
     );
   }
 
+  async findByStadium(
+    stadiumId: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<MatchSummaryDto>> {
+    const query = this.createSummaryQuery().where(
+      'match.stadium_id = :stadiumId',
+      { stadiumId },
+    );
+
+    return await this.paginateSummaryQuery(query, pagination);
+  }
   async findOne(id: string): Promise<MatchDetailDto> {
     const match = await this.createSummaryQuery()
       .where('match.id = :id', { id })

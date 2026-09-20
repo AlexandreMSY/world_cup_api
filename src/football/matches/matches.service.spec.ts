@@ -7,6 +7,7 @@ const queryBuilder = {
   innerJoinAndSelect: vi.fn(),
   leftJoinAndSelect: vi.fn(),
   where: vi.fn(),
+  distinct: vi.fn(),
   orderBy: vi.fn(),
   addOrderBy: vi.fn(),
   skip: vi.fn(),
@@ -28,6 +29,7 @@ describe('MatchesService', () => {
       'innerJoinAndSelect',
       'leftJoinAndSelect',
       'where',
+      'distinct',
       'orderBy',
       'addOrderBy',
       'skip',
@@ -112,5 +114,17 @@ describe('MatchesService', () => {
     expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('match.id', 'ASC');
     expect(queryBuilder.skip).toHaveBeenCalledWith(10);
     expect(queryBuilder.take).toHaveBeenCalledWith(10);
+  });
+
+  it('uses a grouped home-or-away condition for team matches', async () => {
+    queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findByTeam('team-id', { page: 1, limit: 20 });
+
+    expect(queryBuilder.where).toHaveBeenCalledOnce();
+    expect(queryBuilder.where.mock.calls[0][0].constructor.name).toBe(
+      'Brackets',
+    );
+    expect(queryBuilder.distinct).toHaveBeenCalledWith(true);
   });
 });

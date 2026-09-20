@@ -37,7 +37,7 @@ async function bootstrap() {
         type: 'apiKey',
         in: 'header',
         name: 'X-API-Key',
-        description: 'Reserved for future football-related endpoints.',
+        description: 'API key required by football endpoints.',
       },
       'apiKey',
     )

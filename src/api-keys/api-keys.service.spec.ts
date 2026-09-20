@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import argon2 from 'argon2';
 import { NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { ApiKeysService } from './api-keys.service.js';
 import { ApiKey } from './entities/api-key.entity.js';
 
@@ -52,6 +53,9 @@ describe('ApiKeysService', () => {
     await expect(
       argon2.verify(createdApiKey.key_hash, response.api_key),
     ).resolves.toBe(true);
+    expect(createdApiKey.key_fingerprint).toBe(
+      createHash('sha256').update(response.api_key).digest('hex'),
+    );
     expect(queryBuilder.where).toHaveBeenCalledWith('user_id = :userId', {
       userId: 'user-id',
     });
